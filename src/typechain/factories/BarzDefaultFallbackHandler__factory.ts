@@ -2,8 +2,7 @@
 /* tslint:disable */
 /* eslint-disable */
 
-import { Contract, Signer, utils } from "ethers";
-import type { Provider } from "@ethersproject/providers";
+import { Contract, Interface, type ContractRunner } from "ethers";
 import type {
   BarzDefaultFallbackHandler,
   BarzDefaultFallbackHandlerInterface,
@@ -175,16 +174,16 @@ const _abi = [
 export class BarzDefaultFallbackHandler__factory {
   static readonly abi = _abi;
   static createInterface(): BarzDefaultFallbackHandlerInterface {
-    return new utils.Interface(_abi) as BarzDefaultFallbackHandlerInterface;
+    return new Interface(_abi) as BarzDefaultFallbackHandlerInterface;
   }
   static connect(
     address: string,
-    signerOrProvider: Signer | Provider
+    runner?: ContractRunner | null
   ): BarzDefaultFallbackHandler {
     return new Contract(
       address,
       _abi,
-      signerOrProvider
-    ) as BarzDefaultFallbackHandler;
+      runner
+    ) as unknown as BarzDefaultFallbackHandler;
   }
 }

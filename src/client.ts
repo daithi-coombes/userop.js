@@ -1,4 +1,4 @@
-import { BigNumberish, ethers } from "ethers";
+import { JsonRpcProvider } from "ethers";
 import { UserOperationBuilder } from "./builder";
 import { ISendUserOperationOpts, IClientOpts, StateOverrideSet } from "./types";
 import { EntryPoint, EntryPoint__factory } from "./typechain";
@@ -8,10 +8,10 @@ import { ERC4337 } from "./constants";
 import { BundlerJsonRpcProvider } from "./provider";
 
 export class Client {
-  private provider: ethers.providers.JsonRpcProvider;
+  private provider: JsonRpcProvider;
 
   public entryPoint: EntryPoint;
-  public chainId: BigNumberish;
+  public chainId: bigint;
   public waitTimeoutMs: number;
   public waitIntervalMs: number;
 
@@ -19,11 +19,12 @@ export class Client {
     this.provider = new BundlerJsonRpcProvider(rpcUrl).setBundlerRpc(
       opts?.overrideBundlerRpc
     );
+
     this.entryPoint = EntryPoint__factory.connect(
       opts?.entryPoint || ERC4337.EntryPoint,
       this.provider
     );
-    this.chainId = ethers.BigNumber.from(1);
+    this.chainId = BigInt(1);
     this.waitTimeoutMs = 30000;
     this.waitIntervalMs = 5000;
   }
@@ -32,7 +33,7 @@ export class Client {
     const instance = new Client(rpcUrl, opts);
     instance.chainId = await instance.provider
       .getNetwork()
-      .then((network) => ethers.BigNumber.from(network.chainId));
+      .then((network) => BigInt(network.chainId));
 
     return instance;
   }
@@ -42,7 +43,7 @@ export class Client {
     stateOverrides?: StateOverrideSet
   ) {
     return builder.buildOp(
-      this.entryPoint.address,
+      await this.entryPoint.getAddress(),
       this.chainId,
       stateOverrides
     );
@@ -59,12 +60,12 @@ export class Client {
     const userOpHash = dryRun
       ? new UserOperationMiddlewareCtx(
           op,
-          this.entryPoint.address,
+          await this.entryPoint.getAddress(),
           this.chainId
         ).getUserOpHash()
       : ((await this.provider.send("eth_sendUserOperation", [
           OpToJSON(op),
-          this.entryPoint.address,
+          await this.entryPoint.getAddress(),
         ])) as string);
     builder.resetOp();
 
@@ -80,7 +81,7 @@ export class Client {
         while (Date.now() < end) {
           const events = await this.entryPoint.queryFilter(
             this.entryPoint.filters.UserOperationEvent(userOpHash),
-            Math.max(0, block.number - 100)
+            Math.max(0, (block?.number || 0) - 100)
           );
           if (events.length > 0) {
             return events[0];

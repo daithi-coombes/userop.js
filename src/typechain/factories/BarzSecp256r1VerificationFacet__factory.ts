@@ -2,8 +2,7 @@
 /* tslint:disable */
 /* eslint-disable */
 
-import { Contract, Signer, utils } from "ethers";
-import type { Provider } from "@ethersproject/providers";
+import { Contract, Interface, type ContractRunner } from "ethers";
 import type {
   BarzSecp256r1VerificationFacet,
   BarzSecp256r1VerificationFacetInterface,
@@ -360,16 +359,16 @@ const _abi = [
 export class BarzSecp256r1VerificationFacet__factory {
   static readonly abi = _abi;
   static createInterface(): BarzSecp256r1VerificationFacetInterface {
-    return new utils.Interface(_abi) as BarzSecp256r1VerificationFacetInterface;
+    return new Interface(_abi) as BarzSecp256r1VerificationFacetInterface;
   }
   static connect(
     address: string,
-    signerOrProvider: Signer | Provider
+    runner?: ContractRunner | null
   ): BarzSecp256r1VerificationFacet {
     return new Contract(
       address,
       _abi,
-      signerOrProvider
-    ) as BarzSecp256r1VerificationFacet;
+      runner
+    ) as unknown as BarzSecp256r1VerificationFacet;
   }
 }

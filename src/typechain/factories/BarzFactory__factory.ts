@@ -2,8 +2,7 @@
 /* tslint:disable */
 /* eslint-disable */
 
-import { Contract, Signer, utils } from "ethers";
-import type { Provider } from "@ethersproject/providers";
+import { Contract, Interface, type ContractRunner } from "ethers";
 import type { BarzFactory, BarzFactoryInterface } from "../BarzFactory";
 
 const _abi = [
@@ -218,12 +217,9 @@ const _abi = [
 export class BarzFactory__factory {
   static readonly abi = _abi;
   static createInterface(): BarzFactoryInterface {
-    return new utils.Interface(_abi) as BarzFactoryInterface;
+    return new Interface(_abi) as BarzFactoryInterface;
   }
-  static connect(
-    address: string,
-    signerOrProvider: Signer | Provider
-  ): BarzFactory {
-    return new Contract(address, _abi, signerOrProvider) as BarzFactory;
+  static connect(address: string, runner?: ContractRunner | null): BarzFactory {
+    return new Contract(address, _abi, runner) as unknown as BarzFactory;
   }
 }

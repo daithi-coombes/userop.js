@@ -13,11 +13,10 @@ interface VerifyingPaymasterResult {
 export const verifyingPaymaster =
   (paymasterRpc: string, context: any): UserOperationMiddlewareFn =>
   async (ctx) => {
-    ctx.op.verificationGasLimit = ethers.BigNumber.from(
-      ctx.op.verificationGasLimit
-    ).mul(3);
+    ctx.op.verificationGasLimit =
+      BigInt(ctx.op.verificationGasLimit) * BigInt(3);
 
-    const provider = new ethers.providers.JsonRpcProvider(paymasterRpc);
+    const provider = new ethers.JsonRpcProvider(paymasterRpc);
     const pm = (await provider.send("pm_sponsorUserOperation", [
       OpToJSON(ctx.op),
       ctx.entryPoint,
@@ -25,7 +24,7 @@ export const verifyingPaymaster =
     ])) as VerifyingPaymasterResult;
 
     ctx.op.paymasterAndData = pm.paymasterAndData;
-    ctx.op.preVerificationGas = pm.preVerificationGas;
-    ctx.op.verificationGasLimit = pm.verificationGasLimit;
-    ctx.op.callGasLimit = pm.callGasLimit;
+    ctx.op.preVerificationGas = BigInt(pm.preVerificationGas);
+    ctx.op.verificationGasLimit = BigInt(pm.verificationGasLimit);
+    ctx.op.callGasLimit = BigInt(pm.callGasLimit);
   };

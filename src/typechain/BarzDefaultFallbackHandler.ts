@@ -3,68 +3,62 @@
 /* eslint-disable */
 import type {
   BaseContract,
-  BigNumber,
   BigNumberish,
   BytesLike,
-  CallOverrides,
-  PopulatedTransaction,
-  Signer,
-  utils,
-} from "ethers";
-import type {
   FunctionFragment,
   Result,
+  Interface,
   EventFragment,
-} from "@ethersproject/abi";
-import type { Listener, Provider } from "@ethersproject/providers";
+  AddressLike,
+  ContractRunner,
+  ContractMethod,
+  Listener,
+} from "ethers";
 import type {
-  TypedEventFilter,
-  TypedEvent,
+  TypedContractEvent,
+  TypedDeferredTopicFilter,
+  TypedEventLog,
+  TypedLogDescription,
   TypedListener,
-  OnEvent,
+  TypedContractMethod,
 } from "./common";
 
 export declare namespace IDiamondCut {
   export type FacetCutStruct = {
-    facetAddress: string;
+    facetAddress: AddressLike;
     action: BigNumberish;
     functionSelectors: BytesLike[];
   };
 
-  export type FacetCutStructOutput = [string, number, string[]] & {
-    facetAddress: string;
-    action: number;
-    functionSelectors: string[];
-  };
+  export type FacetCutStructOutput = [
+    facetAddress: string,
+    action: bigint,
+    functionSelectors: string[]
+  ] & { facetAddress: string; action: bigint; functionSelectors: string[] };
 }
 
 export declare namespace IDiamondLoupe {
   export type FacetStruct = {
-    facetAddress: string;
+    facetAddress: AddressLike;
     functionSelectors: BytesLike[];
   };
 
-  export type FacetStructOutput = [string, string[]] & {
-    facetAddress: string;
-    functionSelectors: string[];
-  };
+  export type FacetStructOutput = [
+    facetAddress: string,
+    functionSelectors: string[]
+  ] & { facetAddress: string; functionSelectors: string[] };
 }
 
-export interface BarzDefaultFallbackHandlerInterface extends utils.Interface {
-  functions: {
-    "facetAddress(bytes4)": FunctionFragment;
-    "facetAddresses()": FunctionFragment;
-    "facetFunctionSelectors(address)": FunctionFragment;
-    "facets()": FunctionFragment;
-  };
-
+export interface BarzDefaultFallbackHandlerInterface extends Interface {
   getFunction(
-    nameOrSignatureOrTopic:
+    nameOrSignature:
       | "facetAddress"
       | "facetAddresses"
       | "facetFunctionSelectors"
       | "facets"
   ): FunctionFragment;
+
+  getEvent(nameOrSignatureOrTopic: "DiamondCut"): EventFragment;
 
   encodeFunctionData(
     functionFragment: "facetAddress",
@@ -76,7 +70,7 @@ export interface BarzDefaultFallbackHandlerInterface extends utils.Interface {
   ): string;
   encodeFunctionData(
     functionFragment: "facetFunctionSelectors",
-    values: [string]
+    values: [AddressLike]
   ): string;
   encodeFunctionData(functionFragment: "facets", values?: undefined): string;
 
@@ -93,150 +87,124 @@ export interface BarzDefaultFallbackHandlerInterface extends utils.Interface {
     data: BytesLike
   ): Result;
   decodeFunctionResult(functionFragment: "facets", data: BytesLike): Result;
-
-  events: {
-    "DiamondCut(tuple[],address,bytes)": EventFragment;
-  };
-
-  getEvent(nameOrSignatureOrTopic: "DiamondCut"): EventFragment;
 }
 
-export interface DiamondCutEventObject {
-  _diamondCut: IDiamondCut.FacetCutStructOutput[];
-  _init: string;
-  _calldata: string;
+export namespace DiamondCutEvent {
+  export type InputTuple = [
+    _diamondCut: IDiamondCut.FacetCutStruct[],
+    _init: AddressLike,
+    _calldata: BytesLike
+  ];
+  export type OutputTuple = [
+    _diamondCut: IDiamondCut.FacetCutStructOutput[],
+    _init: string,
+    _calldata: string
+  ];
+  export interface OutputObject {
+    _diamondCut: IDiamondCut.FacetCutStructOutput[];
+    _init: string;
+    _calldata: string;
+  }
+  export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
+  export type Filter = TypedDeferredTopicFilter<Event>;
+  export type Log = TypedEventLog<Event>;
+  export type LogDescription = TypedLogDescription<Event>;
 }
-export type DiamondCutEvent = TypedEvent<
-  [IDiamondCut.FacetCutStructOutput[], string, string],
-  DiamondCutEventObject
->;
-
-export type DiamondCutEventFilter = TypedEventFilter<DiamondCutEvent>;
 
 export interface BarzDefaultFallbackHandler extends BaseContract {
-  connect(signerOrProvider: Signer | Provider | string): this;
-  attach(addressOrName: string): this;
-  deployed(): Promise<this>;
+  connect(runner?: ContractRunner | null): BarzDefaultFallbackHandler;
+  waitForDeployment(): Promise<this>;
 
   interface: BarzDefaultFallbackHandlerInterface;
 
-  queryFilter<TEvent extends TypedEvent>(
-    event: TypedEventFilter<TEvent>,
+  queryFilter<TCEvent extends TypedContractEvent>(
+    event: TCEvent,
     fromBlockOrBlockhash?: string | number | undefined,
     toBlock?: string | number | undefined
-  ): Promise<Array<TEvent>>;
+  ): Promise<Array<TypedEventLog<TCEvent>>>;
+  queryFilter<TCEvent extends TypedContractEvent>(
+    filter: TypedDeferredTopicFilter<TCEvent>,
+    fromBlockOrBlockhash?: string | number | undefined,
+    toBlock?: string | number | undefined
+  ): Promise<Array<TypedEventLog<TCEvent>>>;
 
-  listeners<TEvent extends TypedEvent>(
-    eventFilter?: TypedEventFilter<TEvent>
-  ): Array<TypedListener<TEvent>>;
-  listeners(eventName?: string): Array<Listener>;
-  removeAllListeners<TEvent extends TypedEvent>(
-    eventFilter: TypedEventFilter<TEvent>
-  ): this;
-  removeAllListeners(eventName?: string): this;
-  off: OnEvent<this>;
-  on: OnEvent<this>;
-  once: OnEvent<this>;
-  removeListener: OnEvent<this>;
+  on<TCEvent extends TypedContractEvent>(
+    event: TCEvent,
+    listener: TypedListener<TCEvent>
+  ): Promise<this>;
+  on<TCEvent extends TypedContractEvent>(
+    filter: TypedDeferredTopicFilter<TCEvent>,
+    listener: TypedListener<TCEvent>
+  ): Promise<this>;
 
-  functions: {
-    facetAddress(
-      _functionSelector: BytesLike,
-      overrides?: CallOverrides
-    ): Promise<[string] & { facetAddress_: string }>;
+  once<TCEvent extends TypedContractEvent>(
+    event: TCEvent,
+    listener: TypedListener<TCEvent>
+  ): Promise<this>;
+  once<TCEvent extends TypedContractEvent>(
+    filter: TypedDeferredTopicFilter<TCEvent>,
+    listener: TypedListener<TCEvent>
+  ): Promise<this>;
 
-    facetAddresses(
-      overrides?: CallOverrides
-    ): Promise<[string[]] & { facetAddresses_: string[] }>;
+  listeners<TCEvent extends TypedContractEvent>(
+    event: TCEvent
+  ): Promise<Array<TypedListener<TCEvent>>>;
+  listeners(eventName?: string): Promise<Array<Listener>>;
+  removeAllListeners<TCEvent extends TypedContractEvent>(
+    event?: TCEvent
+  ): Promise<this>;
 
-    facetFunctionSelectors(
-      _facet: string,
-      overrides?: CallOverrides
-    ): Promise<[string[]] & { facetFunctionSelectors_: string[] }>;
+  facetAddress: TypedContractMethod<
+    [_functionSelector: BytesLike],
+    [string],
+    "view"
+  >;
 
-    facets(
-      overrides?: CallOverrides
-    ): Promise<
-      [IDiamondLoupe.FacetStructOutput[]] & {
-        facets_: IDiamondLoupe.FacetStructOutput[];
-      }
-    >;
-  };
+  facetAddresses: TypedContractMethod<[], [string[]], "view">;
 
-  facetAddress(
-    _functionSelector: BytesLike,
-    overrides?: CallOverrides
-  ): Promise<string>;
+  facetFunctionSelectors: TypedContractMethod<
+    [_facet: AddressLike],
+    [string[]],
+    "view"
+  >;
 
-  facetAddresses(overrides?: CallOverrides): Promise<string[]>;
+  facets: TypedContractMethod<[], [IDiamondLoupe.FacetStructOutput[]], "view">;
 
-  facetFunctionSelectors(
-    _facet: string,
-    overrides?: CallOverrides
-  ): Promise<string[]>;
+  getFunction<T extends ContractMethod = ContractMethod>(
+    key: string | FunctionFragment
+  ): T;
 
-  facets(overrides?: CallOverrides): Promise<IDiamondLoupe.FacetStructOutput[]>;
+  getFunction(
+    nameOrSignature: "facetAddress"
+  ): TypedContractMethod<[_functionSelector: BytesLike], [string], "view">;
+  getFunction(
+    nameOrSignature: "facetAddresses"
+  ): TypedContractMethod<[], [string[]], "view">;
+  getFunction(
+    nameOrSignature: "facetFunctionSelectors"
+  ): TypedContractMethod<[_facet: AddressLike], [string[]], "view">;
+  getFunction(
+    nameOrSignature: "facets"
+  ): TypedContractMethod<[], [IDiamondLoupe.FacetStructOutput[]], "view">;
 
-  callStatic: {
-    facetAddress(
-      _functionSelector: BytesLike,
-      overrides?: CallOverrides
-    ): Promise<string>;
-
-    facetAddresses(overrides?: CallOverrides): Promise<string[]>;
-
-    facetFunctionSelectors(
-      _facet: string,
-      overrides?: CallOverrides
-    ): Promise<string[]>;
-
-    facets(
-      overrides?: CallOverrides
-    ): Promise<IDiamondLoupe.FacetStructOutput[]>;
-  };
+  getEvent(
+    key: "DiamondCut"
+  ): TypedContractEvent<
+    DiamondCutEvent.InputTuple,
+    DiamondCutEvent.OutputTuple,
+    DiamondCutEvent.OutputObject
+  >;
 
   filters: {
-    "DiamondCut(tuple[],address,bytes)"(
-      _diamondCut?: null,
-      _init?: null,
-      _calldata?: null
-    ): DiamondCutEventFilter;
-    DiamondCut(
-      _diamondCut?: null,
-      _init?: null,
-      _calldata?: null
-    ): DiamondCutEventFilter;
-  };
-
-  estimateGas: {
-    facetAddress(
-      _functionSelector: BytesLike,
-      overrides?: CallOverrides
-    ): Promise<BigNumber>;
-
-    facetAddresses(overrides?: CallOverrides): Promise<BigNumber>;
-
-    facetFunctionSelectors(
-      _facet: string,
-      overrides?: CallOverrides
-    ): Promise<BigNumber>;
-
-    facets(overrides?: CallOverrides): Promise<BigNumber>;
-  };
-
-  populateTransaction: {
-    facetAddress(
-      _functionSelector: BytesLike,
-      overrides?: CallOverrides
-    ): Promise<PopulatedTransaction>;
-
-    facetAddresses(overrides?: CallOverrides): Promise<PopulatedTransaction>;
-
-    facetFunctionSelectors(
-      _facet: string,
-      overrides?: CallOverrides
-    ): Promise<PopulatedTransaction>;
-
-    facets(overrides?: CallOverrides): Promise<PopulatedTransaction>;
+    "DiamondCut(tuple[],address,bytes)": TypedContractEvent<
+      DiamondCutEvent.InputTuple,
+      DiamondCutEvent.OutputTuple,
+      DiamondCutEvent.OutputObject
+    >;
+    DiamondCut: TypedContractEvent<
+      DiamondCutEvent.InputTuple,
+      DiamondCutEvent.OutputTuple,
+      DiamondCutEvent.OutputObject
+    >;
   };
 }

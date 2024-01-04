@@ -1,18 +1,18 @@
-import { BigNumberish, ethers } from "ethers";
+import { JsonRpcProvider } from "ethers";
 import { OpToJSON } from "../../utils";
 import { UserOperationMiddlewareFn } from "../../types";
 
 interface GasEstimate {
-  preVerificationGas: BigNumberish;
-  verificationGasLimit: BigNumberish;
-  callGasLimit: BigNumberish;
+  preVerificationGas: bigint;
+  verificationGasLimit: bigint;
+  callGasLimit: bigint;
 
   // TODO: remove this with EntryPoint v0.7
-  verificationGas: BigNumberish;
+  verificationGas: bigint;
 }
 
 export const estimateUserOperationGas =
-  (provider: ethers.providers.JsonRpcProvider): UserOperationMiddlewareFn =>
+  (provider: JsonRpcProvider): UserOperationMiddlewareFn =>
   async (ctx) => {
     const params =
       ctx.stateOverrides !== undefined

@@ -3,31 +3,28 @@
 /* eslint-disable */
 import type {
   BaseContract,
-  BigNumber,
   BigNumberish,
   BytesLike,
-  CallOverrides,
-  ContractTransaction,
-  Overrides,
-  PopulatedTransaction,
-  Signer,
-  utils,
-} from "ethers";
-import type {
   FunctionFragment,
   Result,
+  Interface,
   EventFragment,
-} from "@ethersproject/abi";
-import type { Listener, Provider } from "@ethersproject/providers";
+  AddressLike,
+  ContractRunner,
+  ContractMethod,
+  Listener,
+} from "ethers";
 import type {
-  TypedEventFilter,
-  TypedEvent,
+  TypedContractEvent,
+  TypedDeferredTopicFilter,
+  TypedEventLog,
+  TypedLogDescription,
   TypedListener,
-  OnEvent,
+  TypedContractMethod,
 } from "./common";
 
 export type UserOperationStruct = {
-  sender: string;
+  sender: AddressLike;
   nonce: BigNumberish;
   initCode: BytesLike;
   callData: BytesLike;
@@ -41,47 +38,34 @@ export type UserOperationStruct = {
 };
 
 export type UserOperationStructOutput = [
-  string,
-  BigNumber,
-  string,
-  string,
-  BigNumber,
-  BigNumber,
-  BigNumber,
-  BigNumber,
-  BigNumber,
-  string,
-  string
+  sender: string,
+  nonce: bigint,
+  initCode: string,
+  callData: string,
+  callGasLimit: bigint,
+  verificationGasLimit: bigint,
+  preVerificationGas: bigint,
+  maxFeePerGas: bigint,
+  maxPriorityFeePerGas: bigint,
+  paymasterAndData: string,
+  signature: string
 ] & {
   sender: string;
-  nonce: BigNumber;
+  nonce: bigint;
   initCode: string;
   callData: string;
-  callGasLimit: BigNumber;
-  verificationGasLimit: BigNumber;
-  preVerificationGas: BigNumber;
-  maxFeePerGas: BigNumber;
-  maxPriorityFeePerGas: BigNumber;
+  callGasLimit: bigint;
+  verificationGasLimit: bigint;
+  preVerificationGas: bigint;
+  maxFeePerGas: bigint;
+  maxPriorityFeePerGas: bigint;
   paymasterAndData: string;
   signature: string;
 };
 
-export interface BarzSecp256r1VerificationFacetInterface
-  extends utils.Interface {
-  functions: {
-    "initializeSigner(bytes)": FunctionFragment;
-    "isValidKeyType(bytes)": FunctionFragment;
-    "isValidSignature(bytes32,bytes)": FunctionFragment;
-    "owner()": FunctionFragment;
-    "self()": FunctionFragment;
-    "uninitializeSigner()": FunctionFragment;
-    "validateOwnerSignature((address,uint256,bytes,bytes,uint256,uint256,uint256,uint256,uint256,bytes,bytes),bytes32)": FunctionFragment;
-    "validateOwnerSignatureSelector()": FunctionFragment;
-    "validateSignature((address,uint256,bytes,bytes,uint256,uint256,uint256,uint256,uint256,bytes,bytes),bytes32,uint256[2])": FunctionFragment;
-  };
-
+export interface BarzSecp256r1VerificationFacetInterface extends Interface {
   getFunction(
-    nameOrSignatureOrTopic:
+    nameOrSignature:
       | "initializeSigner"
       | "isValidKeyType"
       | "isValidSignature"
@@ -92,6 +76,10 @@ export interface BarzSecp256r1VerificationFacetInterface
       | "validateOwnerSignatureSelector"
       | "validateSignature"
   ): FunctionFragment;
+
+  getEvent(
+    nameOrSignatureOrTopic: "SignerInitialized" | "SignerUninitialized"
+  ): EventFragment;
 
   encodeFunctionData(
     functionFragment: "initializeSigner",
@@ -154,274 +142,199 @@ export interface BarzSecp256r1VerificationFacetInterface
     functionFragment: "validateSignature",
     data: BytesLike
   ): Result;
-
-  events: {
-    "SignerInitialized(bytes)": EventFragment;
-    "SignerUninitialized()": EventFragment;
-  };
-
-  getEvent(nameOrSignatureOrTopic: "SignerInitialized"): EventFragment;
-  getEvent(nameOrSignatureOrTopic: "SignerUninitialized"): EventFragment;
 }
 
-export interface SignerInitializedEventObject {
-  arg0: string;
+export namespace SignerInitializedEvent {
+  export type InputTuple = [arg0: BytesLike];
+  export type OutputTuple = [arg0: string];
+  export interface OutputObject {
+    arg0: string;
+  }
+  export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
+  export type Filter = TypedDeferredTopicFilter<Event>;
+  export type Log = TypedEventLog<Event>;
+  export type LogDescription = TypedLogDescription<Event>;
 }
-export type SignerInitializedEvent = TypedEvent<
-  [string],
-  SignerInitializedEventObject
->;
 
-export type SignerInitializedEventFilter =
-  TypedEventFilter<SignerInitializedEvent>;
-
-export interface SignerUninitializedEventObject {}
-export type SignerUninitializedEvent = TypedEvent<
-  [],
-  SignerUninitializedEventObject
->;
-
-export type SignerUninitializedEventFilter =
-  TypedEventFilter<SignerUninitializedEvent>;
+export namespace SignerUninitializedEvent {
+  export type InputTuple = [];
+  export type OutputTuple = [];
+  export interface OutputObject {}
+  export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
+  export type Filter = TypedDeferredTopicFilter<Event>;
+  export type Log = TypedEventLog<Event>;
+  export type LogDescription = TypedLogDescription<Event>;
+}
 
 export interface BarzSecp256r1VerificationFacet extends BaseContract {
-  connect(signerOrProvider: Signer | Provider | string): this;
-  attach(addressOrName: string): this;
-  deployed(): Promise<this>;
+  connect(runner?: ContractRunner | null): BarzSecp256r1VerificationFacet;
+  waitForDeployment(): Promise<this>;
 
   interface: BarzSecp256r1VerificationFacetInterface;
 
-  queryFilter<TEvent extends TypedEvent>(
-    event: TypedEventFilter<TEvent>,
+  queryFilter<TCEvent extends TypedContractEvent>(
+    event: TCEvent,
     fromBlockOrBlockhash?: string | number | undefined,
     toBlock?: string | number | undefined
-  ): Promise<Array<TEvent>>;
+  ): Promise<Array<TypedEventLog<TCEvent>>>;
+  queryFilter<TCEvent extends TypedContractEvent>(
+    filter: TypedDeferredTopicFilter<TCEvent>,
+    fromBlockOrBlockhash?: string | number | undefined,
+    toBlock?: string | number | undefined
+  ): Promise<Array<TypedEventLog<TCEvent>>>;
 
-  listeners<TEvent extends TypedEvent>(
-    eventFilter?: TypedEventFilter<TEvent>
-  ): Array<TypedListener<TEvent>>;
-  listeners(eventName?: string): Array<Listener>;
-  removeAllListeners<TEvent extends TypedEvent>(
-    eventFilter: TypedEventFilter<TEvent>
-  ): this;
-  removeAllListeners(eventName?: string): this;
-  off: OnEvent<this>;
-  on: OnEvent<this>;
-  once: OnEvent<this>;
-  removeListener: OnEvent<this>;
+  on<TCEvent extends TypedContractEvent>(
+    event: TCEvent,
+    listener: TypedListener<TCEvent>
+  ): Promise<this>;
+  on<TCEvent extends TypedContractEvent>(
+    filter: TypedDeferredTopicFilter<TCEvent>,
+    listener: TypedListener<TCEvent>
+  ): Promise<this>;
 
-  functions: {
-    initializeSigner(
-      _publicKey: BytesLike,
-      overrides?: Overrides & { from?: string }
-    ): Promise<ContractTransaction>;
+  once<TCEvent extends TypedContractEvent>(
+    event: TCEvent,
+    listener: TypedListener<TCEvent>
+  ): Promise<this>;
+  once<TCEvent extends TypedContractEvent>(
+    filter: TypedDeferredTopicFilter<TCEvent>,
+    listener: TypedListener<TCEvent>
+  ): Promise<this>;
 
-    isValidKeyType(
-      _publicKey: BytesLike,
-      overrides?: CallOverrides
-    ): Promise<[boolean] & { isValid: boolean }>;
+  listeners<TCEvent extends TypedContractEvent>(
+    event: TCEvent
+  ): Promise<Array<TypedListener<TCEvent>>>;
+  listeners(eventName?: string): Promise<Array<Listener>>;
+  removeAllListeners<TCEvent extends TypedContractEvent>(
+    event?: TCEvent
+  ): Promise<this>;
 
-    isValidSignature(
-      _hash: BytesLike,
-      _signature: BytesLike,
-      overrides?: CallOverrides
-    ): Promise<[string] & { magicValue: string }>;
+  initializeSigner: TypedContractMethod<
+    [_publicKey: BytesLike],
+    [bigint],
+    "nonpayable"
+  >;
 
-    owner(overrides?: CallOverrides): Promise<[string] & { signer: string }>;
+  isValidKeyType: TypedContractMethod<
+    [_publicKey: BytesLike],
+    [boolean],
+    "view"
+  >;
 
-    self(overrides?: CallOverrides): Promise<[string]>;
+  isValidSignature: TypedContractMethod<
+    [_hash: BytesLike, _signature: BytesLike],
+    [string],
+    "view"
+  >;
 
-    uninitializeSigner(
-      overrides?: Overrides & { from?: string }
-    ): Promise<ContractTransaction>;
+  owner: TypedContractMethod<[], [string], "view">;
 
-    validateOwnerSignature(
+  self: TypedContractMethod<[], [string], "view">;
+
+  uninitializeSigner: TypedContractMethod<[], [bigint], "nonpayable">;
+
+  validateOwnerSignature: TypedContractMethod<
+    [userOp: UserOperationStruct, userOpHash: BytesLike],
+    [bigint],
+    "view"
+  >;
+
+  validateOwnerSignatureSelector: TypedContractMethod<[], [string], "view">;
+
+  validateSignature: TypedContractMethod<
+    [
       userOp: UserOperationStruct,
       userOpHash: BytesLike,
-      overrides?: CallOverrides
-    ): Promise<[BigNumber] & { validationData: BigNumber }>;
+      q: [BigNumberish, BigNumberish]
+    ],
+    [bigint],
+    "view"
+  >;
 
-    validateOwnerSignatureSelector(
-      overrides?: CallOverrides
-    ): Promise<[string] & { ownerSignatureValidatorSelector: string }>;
+  getFunction<T extends ContractMethod = ContractMethod>(
+    key: string | FunctionFragment
+  ): T;
 
-    validateSignature(
+  getFunction(
+    nameOrSignature: "initializeSigner"
+  ): TypedContractMethod<[_publicKey: BytesLike], [bigint], "nonpayable">;
+  getFunction(
+    nameOrSignature: "isValidKeyType"
+  ): TypedContractMethod<[_publicKey: BytesLike], [boolean], "view">;
+  getFunction(
+    nameOrSignature: "isValidSignature"
+  ): TypedContractMethod<
+    [_hash: BytesLike, _signature: BytesLike],
+    [string],
+    "view"
+  >;
+  getFunction(
+    nameOrSignature: "owner"
+  ): TypedContractMethod<[], [string], "view">;
+  getFunction(
+    nameOrSignature: "self"
+  ): TypedContractMethod<[], [string], "view">;
+  getFunction(
+    nameOrSignature: "uninitializeSigner"
+  ): TypedContractMethod<[], [bigint], "nonpayable">;
+  getFunction(
+    nameOrSignature: "validateOwnerSignature"
+  ): TypedContractMethod<
+    [userOp: UserOperationStruct, userOpHash: BytesLike],
+    [bigint],
+    "view"
+  >;
+  getFunction(
+    nameOrSignature: "validateOwnerSignatureSelector"
+  ): TypedContractMethod<[], [string], "view">;
+  getFunction(
+    nameOrSignature: "validateSignature"
+  ): TypedContractMethod<
+    [
       userOp: UserOperationStruct,
       userOpHash: BytesLike,
-      q: [BigNumberish, BigNumberish],
-      overrides?: CallOverrides
-    ): Promise<[BigNumber] & { isValid: BigNumber }>;
-  };
+      q: [BigNumberish, BigNumberish]
+    ],
+    [bigint],
+    "view"
+  >;
 
-  initializeSigner(
-    _publicKey: BytesLike,
-    overrides?: Overrides & { from?: string }
-  ): Promise<ContractTransaction>;
-
-  isValidKeyType(
-    _publicKey: BytesLike,
-    overrides?: CallOverrides
-  ): Promise<boolean>;
-
-  isValidSignature(
-    _hash: BytesLike,
-    _signature: BytesLike,
-    overrides?: CallOverrides
-  ): Promise<string>;
-
-  owner(overrides?: CallOverrides): Promise<string>;
-
-  self(overrides?: CallOverrides): Promise<string>;
-
-  uninitializeSigner(
-    overrides?: Overrides & { from?: string }
-  ): Promise<ContractTransaction>;
-
-  validateOwnerSignature(
-    userOp: UserOperationStruct,
-    userOpHash: BytesLike,
-    overrides?: CallOverrides
-  ): Promise<BigNumber>;
-
-  validateOwnerSignatureSelector(overrides?: CallOverrides): Promise<string>;
-
-  validateSignature(
-    userOp: UserOperationStruct,
-    userOpHash: BytesLike,
-    q: [BigNumberish, BigNumberish],
-    overrides?: CallOverrides
-  ): Promise<BigNumber>;
-
-  callStatic: {
-    initializeSigner(
-      _publicKey: BytesLike,
-      overrides?: CallOverrides
-    ): Promise<BigNumber>;
-
-    isValidKeyType(
-      _publicKey: BytesLike,
-      overrides?: CallOverrides
-    ): Promise<boolean>;
-
-    isValidSignature(
-      _hash: BytesLike,
-      _signature: BytesLike,
-      overrides?: CallOverrides
-    ): Promise<string>;
-
-    owner(overrides?: CallOverrides): Promise<string>;
-
-    self(overrides?: CallOverrides): Promise<string>;
-
-    uninitializeSigner(overrides?: CallOverrides): Promise<BigNumber>;
-
-    validateOwnerSignature(
-      userOp: UserOperationStruct,
-      userOpHash: BytesLike,
-      overrides?: CallOverrides
-    ): Promise<BigNumber>;
-
-    validateOwnerSignatureSelector(overrides?: CallOverrides): Promise<string>;
-
-    validateSignature(
-      userOp: UserOperationStruct,
-      userOpHash: BytesLike,
-      q: [BigNumberish, BigNumberish],
-      overrides?: CallOverrides
-    ): Promise<BigNumber>;
-  };
+  getEvent(
+    key: "SignerInitialized"
+  ): TypedContractEvent<
+    SignerInitializedEvent.InputTuple,
+    SignerInitializedEvent.OutputTuple,
+    SignerInitializedEvent.OutputObject
+  >;
+  getEvent(
+    key: "SignerUninitialized"
+  ): TypedContractEvent<
+    SignerUninitializedEvent.InputTuple,
+    SignerUninitializedEvent.OutputTuple,
+    SignerUninitializedEvent.OutputObject
+  >;
 
   filters: {
-    "SignerInitialized(bytes)"(arg0?: null): SignerInitializedEventFilter;
-    SignerInitialized(arg0?: null): SignerInitializedEventFilter;
+    "SignerInitialized(bytes)": TypedContractEvent<
+      SignerInitializedEvent.InputTuple,
+      SignerInitializedEvent.OutputTuple,
+      SignerInitializedEvent.OutputObject
+    >;
+    SignerInitialized: TypedContractEvent<
+      SignerInitializedEvent.InputTuple,
+      SignerInitializedEvent.OutputTuple,
+      SignerInitializedEvent.OutputObject
+    >;
 
-    "SignerUninitialized()"(): SignerUninitializedEventFilter;
-    SignerUninitialized(): SignerUninitializedEventFilter;
-  };
-
-  estimateGas: {
-    initializeSigner(
-      _publicKey: BytesLike,
-      overrides?: Overrides & { from?: string }
-    ): Promise<BigNumber>;
-
-    isValidKeyType(
-      _publicKey: BytesLike,
-      overrides?: CallOverrides
-    ): Promise<BigNumber>;
-
-    isValidSignature(
-      _hash: BytesLike,
-      _signature: BytesLike,
-      overrides?: CallOverrides
-    ): Promise<BigNumber>;
-
-    owner(overrides?: CallOverrides): Promise<BigNumber>;
-
-    self(overrides?: CallOverrides): Promise<BigNumber>;
-
-    uninitializeSigner(
-      overrides?: Overrides & { from?: string }
-    ): Promise<BigNumber>;
-
-    validateOwnerSignature(
-      userOp: UserOperationStruct,
-      userOpHash: BytesLike,
-      overrides?: CallOverrides
-    ): Promise<BigNumber>;
-
-    validateOwnerSignatureSelector(
-      overrides?: CallOverrides
-    ): Promise<BigNumber>;
-
-    validateSignature(
-      userOp: UserOperationStruct,
-      userOpHash: BytesLike,
-      q: [BigNumberish, BigNumberish],
-      overrides?: CallOverrides
-    ): Promise<BigNumber>;
-  };
-
-  populateTransaction: {
-    initializeSigner(
-      _publicKey: BytesLike,
-      overrides?: Overrides & { from?: string }
-    ): Promise<PopulatedTransaction>;
-
-    isValidKeyType(
-      _publicKey: BytesLike,
-      overrides?: CallOverrides
-    ): Promise<PopulatedTransaction>;
-
-    isValidSignature(
-      _hash: BytesLike,
-      _signature: BytesLike,
-      overrides?: CallOverrides
-    ): Promise<PopulatedTransaction>;
-
-    owner(overrides?: CallOverrides): Promise<PopulatedTransaction>;
-
-    self(overrides?: CallOverrides): Promise<PopulatedTransaction>;
-
-    uninitializeSigner(
-      overrides?: Overrides & { from?: string }
-    ): Promise<PopulatedTransaction>;
-
-    validateOwnerSignature(
-      userOp: UserOperationStruct,
-      userOpHash: BytesLike,
-      overrides?: CallOverrides
-    ): Promise<PopulatedTransaction>;
-
-    validateOwnerSignatureSelector(
-      overrides?: CallOverrides
-    ): Promise<PopulatedTransaction>;
-
-    validateSignature(
-      userOp: UserOperationStruct,
-      userOpHash: BytesLike,
-      q: [BigNumberish, BigNumberish],
-      overrides?: CallOverrides
-    ): Promise<PopulatedTransaction>;
+    "SignerUninitialized()": TypedContractEvent<
+      SignerUninitializedEvent.InputTuple,
+      SignerUninitializedEvent.OutputTuple,
+      SignerUninitializedEvent.OutputObject
+    >;
+    SignerUninitialized: TypedContractEvent<
+      SignerUninitializedEvent.InputTuple,
+      SignerUninitializedEvent.OutputTuple,
+      SignerUninitializedEvent.OutputObject
+    >;
   };
 }

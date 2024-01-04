@@ -8,7 +8,7 @@ export const EOASignature =
       "userop.js: Presets.Middleware.EOASignature is deprecated. Replace with Presets.Middleware.signUserOpHash."
     );
     ctx.op.signature = await signer.signMessage(
-      ethers.utils.arrayify(ctx.getUserOpHash())
+      ethers.getBytes(ctx.getUserOpHash())
     );
   };
 
@@ -16,6 +16,6 @@ export const signUserOpHash =
   (signer: ISigner): UserOperationMiddlewareFn =>
   async (ctx) => {
     ctx.op.signature = await signer.signMessage(
-      ethers.utils.arrayify(ctx.getUserOpHash())
+      ethers.getBytes(ctx.getUserOpHash())
     );
   };

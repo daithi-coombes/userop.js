@@ -1,4 +1,4 @@
-import { BigNumberish, BytesLike, ethers } from "ethers";
+import { BytesLike, ethers } from "ethers";
 import { ERC4337 } from "../../constants";
 import { UserOperationBuilder } from "../../builder";
 import { BundlerJsonRpcProvider } from "../../provider";
@@ -19,9 +19,10 @@ import { IPresetBuilderOpts, UserOperationMiddlewareFn } from "../../types";
 
 export class SimpleAccount extends UserOperationBuilder {
   private signer: ethers.Signer;
-  private provider: ethers.providers.JsonRpcProvider;
+  private provider: ethers.JsonRpcProvider;
   private entryPoint: EntryPoint;
   private factory: SimpleAccountFactory;
+  private factoryAddress: string;
   private initCode: string;
   private nonceKey: number;
   proxy: SimpleAccountImpl;
@@ -40,14 +41,15 @@ export class SimpleAccount extends UserOperationBuilder {
       opts?.entryPoint || ERC4337.EntryPoint,
       this.provider
     );
+    this.factoryAddress = opts?.factory || ERC4337.SimpleAccount.Factory;
     this.factory = SimpleAccountFactory__factory.connect(
-      opts?.factory || ERC4337.SimpleAccount.Factory,
+      this.factoryAddress,
       this.provider
     );
     this.initCode = "0x";
     this.nonceKey = opts?.nonceKey || 0;
     this.proxy = SimpleAccount__factory.connect(
-      ethers.constants.AddressZero,
+      ethers.ZeroAddress,
       this.provider
     );
   }
@@ -69,14 +71,14 @@ export class SimpleAccount extends UserOperationBuilder {
     const instance = new SimpleAccount(signer, rpcUrl, opts);
 
     try {
-      instance.initCode = await ethers.utils.hexConcat([
-        instance.factory.address,
+      instance.initCode = await ethers.concat([
+        instance.factoryAddress,
         instance.factory.interface.encodeFunctionData("createAccount", [
           await instance.signer.getAddress(),
-          ethers.BigNumber.from(opts?.salt ?? 0),
+          BigInt(opts?.salt ?? 0),
         ]),
       ]);
-      await instance.entryPoint.callStatic.getSenderAddress(instance.initCode);
+      await instance.entryPoint.getSenderAddress(instance.initCode);
 
       throw new Error("getSenderAddress: unexpected result");
     } catch (error: any) {
@@ -88,9 +90,9 @@ export class SimpleAccount extends UserOperationBuilder {
 
     const base = instance
       .useDefaults({
-        sender: instance.proxy.address,
+        sender: await instance.proxy.getAddress(),
         signature: await instance.signer.signMessage(
-          ethers.utils.arrayify(ethers.utils.keccak256("0xdead"))
+          ethers.getBytes(ethers.keccak256("0xdead"))
         ),
       })
       .useMiddleware(instance.resolveAccount)
@@ -103,7 +105,7 @@ export class SimpleAccount extends UserOperationBuilder {
     return withPM.useMiddleware(signUserOpHash(instance.signer));
   }
 
-  execute(to: string, value: BigNumberish, data: BytesLike) {
+  execute(to: string, value: bigint, data: BytesLike) {
     return this.setCallData(
       this.proxy.interface.encodeFunctionData("execute", [to, value, data])
     );

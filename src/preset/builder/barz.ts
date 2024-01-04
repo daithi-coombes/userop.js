@@ -1,4 +1,4 @@
-import { BigNumberish, BytesLike, ethers } from "ethers";
+import { AbiCoder, BytesLike, ethers, JsonRpcProvider } from "ethers";
 import { ERC4337, Barz as BarzConst } from "../../constants";
 import { UserOperationBuilder } from "../../builder";
 import { BundlerJsonRpcProvider } from "../../provider";
@@ -20,9 +20,10 @@ import { IPresetBuilderOpts, UserOperationMiddlewareFn } from "../../types";
 
 export class Barz extends UserOperationBuilder {
   private signer: BarzSecp256r1;
-  private provider: ethers.providers.JsonRpcProvider;
+  private provider: JsonRpcProvider;
   private entryPoint: EntryPoint;
   private factory: BarzFactory;
+  private factoryAddress: string;
   private initCode: string;
   proxy: BarzAccountFacet;
 
@@ -40,20 +41,21 @@ export class Barz extends UserOperationBuilder {
       opts?.entryPoint || ERC4337.EntryPoint,
       this.provider
     );
+    this.factoryAddress = opts?.factory || BarzConst.Factory;
     this.factory = BarzFactory__factory.connect(
-      opts?.factory || BarzConst.Factory,
+      this.factoryAddress,
       this.provider
     );
     this.initCode = "0x";
     this.proxy = BarzAccountFacet__factory.connect(
-      ethers.constants.AddressZero,
+      ethers.ZeroAddress,
       this.provider
     );
   }
 
   private resolveAccount: UserOperationMiddlewareFn = async (ctx) => {
     ctx.op.nonce = await this.entryPoint.getNonce(ctx.op.sender, 0);
-    ctx.op.initCode = ctx.op.nonce.eq(0) ? this.initCode : "0x";
+    ctx.op.initCode = ctx.op.nonce == BigInt(0) ? this.initCode : "0x";
   };
 
   public static async init(
@@ -64,15 +66,15 @@ export class Barz extends UserOperationBuilder {
     const instance = new Barz(signer, rpcUrl, opts);
 
     try {
-      instance.initCode = await ethers.utils.hexConcat([
-        instance.factory.address,
+      instance.initCode = await ethers.concat([
+        instance.factoryAddress,
         instance.factory.interface.encodeFunctionData("createAccount", [
           BarzConst.Secp256r1VerificationFacet,
           await instance.signer.getPublicKey(),
-          ethers.BigNumber.from(opts?.salt ?? 0),
+          BigInt(opts?.salt ?? 0),
         ]),
       ]);
-      await instance.entryPoint.callStatic.getSenderAddress(instance.initCode);
+      await instance.entryPoint.getSenderAddress(instance.initCode);
 
       throw new Error("getSenderAddress: unexpected result");
     } catch (error: any) {
@@ -87,9 +89,9 @@ export class Barz extends UserOperationBuilder {
 
     const base = instance
       .useDefaults({
-        sender: instance.proxy.address,
+        sender: await instance.proxy.getAddress(),
         signature: await instance.signer.signMessage(
-          ethers.utils.arrayify(ethers.utils.keccak256("0xdead"))
+          ethers.getBytes(ethers.keccak256("0xdead"))
         ),
       })
       .useMiddleware(instance.resolveAccount)
@@ -102,19 +104,25 @@ export class Barz extends UserOperationBuilder {
     return withPM.useMiddleware(signUserOpHash(instance.signer));
   }
 
-  execute(to: string, value: BigNumberish, data: BytesLike) {
+  execute(to: string, value: bigint, data: BytesLike) {
     return this.setCallData(
-      this.proxy.interface.encodeFunctionData("execute", [to, value, data])
+      AbiCoder.defaultAbiCoder().encode(
+        ["address", "uint256", "bytes"],
+        [to, value, data]
+      )
     );
   }
 
   executeBatch(
     to: Array<string>,
-    value: Array<BigNumberish>,
+    value: Array<bigint>,
     data: Array<BytesLike>
   ) {
     return this.setCallData(
-      this.proxy.interface.encodeFunctionData("executeBatch", [to, value, data])
+      AbiCoder.defaultAbiCoder().encode(
+        ["address[]", "uint256[]", "bytes[]"],
+        [to, value, data]
+      )
     );
   }
 }

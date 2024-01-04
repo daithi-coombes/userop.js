@@ -2,8 +2,7 @@
 /* tslint:disable */
 /* eslint-disable */
 
-import { Contract, Signer, utils } from "ethers";
-import type { Provider } from "@ethersproject/providers";
+import { Contract, Interface, type ContractRunner } from "ethers";
 import type {
   ECDSAValidator,
   ECDSAValidatorInterface,
@@ -195,12 +194,12 @@ const _abi = [
 export class ECDSAValidator__factory {
   static readonly abi = _abi;
   static createInterface(): ECDSAValidatorInterface {
-    return new utils.Interface(_abi) as ECDSAValidatorInterface;
+    return new Interface(_abi) as ECDSAValidatorInterface;
   }
   static connect(
     address: string,
-    signerOrProvider: Signer | Provider
+    runner?: ContractRunner | null
   ): ECDSAValidator {
-    return new Contract(address, _abi, signerOrProvider) as ECDSAValidator;
+    return new Contract(address, _abi, runner) as unknown as ECDSAValidator;
   }
 }

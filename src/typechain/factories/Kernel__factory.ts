@@ -2,8 +2,7 @@
 /* tslint:disable */
 /* eslint-disable */
 
-import { Contract, Signer, utils } from "ethers";
-import type { Provider } from "@ethersproject/providers";
+import { Contract, Interface, type ContractRunner } from "ethers";
 import type { Kernel, KernelInterface } from "../Kernel";
 
 const _abi = [
@@ -589,9 +588,9 @@ const _abi = [
 export class Kernel__factory {
   static readonly abi = _abi;
   static createInterface(): KernelInterface {
-    return new utils.Interface(_abi) as KernelInterface;
+    return new Interface(_abi) as KernelInterface;
   }
-  static connect(address: string, signerOrProvider: Signer | Provider): Kernel {
-    return new Contract(address, _abi, signerOrProvider) as Kernel;
+  static connect(address: string, runner?: ContractRunner | null): Kernel {
+    return new Contract(address, _abi, runner) as unknown as Kernel;
   }
 }

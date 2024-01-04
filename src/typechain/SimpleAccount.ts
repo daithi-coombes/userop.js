@@ -3,32 +3,28 @@
 /* eslint-disable */
 import type {
   BaseContract,
-  BigNumber,
   BigNumberish,
   BytesLike,
-  CallOverrides,
-  ContractTransaction,
-  Overrides,
-  PayableOverrides,
-  PopulatedTransaction,
-  Signer,
-  utils,
-} from "ethers";
-import type {
   FunctionFragment,
   Result,
+  Interface,
   EventFragment,
-} from "@ethersproject/abi";
-import type { Listener, Provider } from "@ethersproject/providers";
+  AddressLike,
+  ContractRunner,
+  ContractMethod,
+  Listener,
+} from "ethers";
 import type {
-  TypedEventFilter,
-  TypedEvent,
+  TypedContractEvent,
+  TypedDeferredTopicFilter,
+  TypedEventLog,
+  TypedLogDescription,
   TypedListener,
-  OnEvent,
+  TypedContractMethod,
 } from "./common";
 
 export type UserOperationStruct = {
-  sender: string;
+  sender: AddressLike;
   nonce: BigNumberish;
   initCode: BytesLike;
   callData: BytesLike;
@@ -42,55 +38,34 @@ export type UserOperationStruct = {
 };
 
 export type UserOperationStructOutput = [
-  string,
-  BigNumber,
-  string,
-  string,
-  BigNumber,
-  BigNumber,
-  BigNumber,
-  BigNumber,
-  BigNumber,
-  string,
-  string
+  sender: string,
+  nonce: bigint,
+  initCode: string,
+  callData: string,
+  callGasLimit: bigint,
+  verificationGasLimit: bigint,
+  preVerificationGas: bigint,
+  maxFeePerGas: bigint,
+  maxPriorityFeePerGas: bigint,
+  paymasterAndData: string,
+  signature: string
 ] & {
   sender: string;
-  nonce: BigNumber;
+  nonce: bigint;
   initCode: string;
   callData: string;
-  callGasLimit: BigNumber;
-  verificationGasLimit: BigNumber;
-  preVerificationGas: BigNumber;
-  maxFeePerGas: BigNumber;
-  maxPriorityFeePerGas: BigNumber;
+  callGasLimit: bigint;
+  verificationGasLimit: bigint;
+  preVerificationGas: bigint;
+  maxFeePerGas: bigint;
+  maxPriorityFeePerGas: bigint;
   paymasterAndData: string;
   signature: string;
 };
 
-export interface SimpleAccountInterface extends utils.Interface {
-  functions: {
-    "addDeposit()": FunctionFragment;
-    "entryPoint()": FunctionFragment;
-    "execute(address,uint256,bytes)": FunctionFragment;
-    "executeBatch(address[],bytes[])": FunctionFragment;
-    "getDeposit()": FunctionFragment;
-    "getNonce()": FunctionFragment;
-    "initialize(address)": FunctionFragment;
-    "onERC1155BatchReceived(address,address,uint256[],uint256[],bytes)": FunctionFragment;
-    "onERC1155Received(address,address,uint256,uint256,bytes)": FunctionFragment;
-    "onERC721Received(address,address,uint256,bytes)": FunctionFragment;
-    "owner()": FunctionFragment;
-    "proxiableUUID()": FunctionFragment;
-    "supportsInterface(bytes4)": FunctionFragment;
-    "tokensReceived(address,address,address,uint256,bytes,bytes)": FunctionFragment;
-    "upgradeTo(address)": FunctionFragment;
-    "upgradeToAndCall(address,bytes)": FunctionFragment;
-    "validateUserOp((address,uint256,bytes,bytes,uint256,uint256,uint256,uint256,uint256,bytes,bytes),bytes32,uint256)": FunctionFragment;
-    "withdrawDepositTo(address,uint256)": FunctionFragment;
-  };
-
+export interface SimpleAccountInterface extends Interface {
   getFunction(
-    nameOrSignatureOrTopic:
+    nameOrSignature:
       | "addDeposit"
       | "entryPoint"
       | "execute"
@@ -111,6 +86,15 @@ export interface SimpleAccountInterface extends utils.Interface {
       | "withdrawDepositTo"
   ): FunctionFragment;
 
+  getEvent(
+    nameOrSignatureOrTopic:
+      | "AdminChanged"
+      | "BeaconUpgraded"
+      | "Initialized"
+      | "SimpleAccountInitialized"
+      | "Upgraded"
+  ): EventFragment;
+
   encodeFunctionData(
     functionFragment: "addDeposit",
     values?: undefined
@@ -121,29 +105,38 @@ export interface SimpleAccountInterface extends utils.Interface {
   ): string;
   encodeFunctionData(
     functionFragment: "execute",
-    values: [string, BigNumberish, BytesLike]
+    values: [AddressLike, BigNumberish, BytesLike]
   ): string;
   encodeFunctionData(
     functionFragment: "executeBatch",
-    values: [string[], BytesLike[]]
+    values: [AddressLike[], BytesLike[]]
   ): string;
   encodeFunctionData(
     functionFragment: "getDeposit",
     values?: undefined
   ): string;
   encodeFunctionData(functionFragment: "getNonce", values?: undefined): string;
-  encodeFunctionData(functionFragment: "initialize", values: [string]): string;
+  encodeFunctionData(
+    functionFragment: "initialize",
+    values: [AddressLike]
+  ): string;
   encodeFunctionData(
     functionFragment: "onERC1155BatchReceived",
-    values: [string, string, BigNumberish[], BigNumberish[], BytesLike]
+    values: [
+      AddressLike,
+      AddressLike,
+      BigNumberish[],
+      BigNumberish[],
+      BytesLike
+    ]
   ): string;
   encodeFunctionData(
     functionFragment: "onERC1155Received",
-    values: [string, string, BigNumberish, BigNumberish, BytesLike]
+    values: [AddressLike, AddressLike, BigNumberish, BigNumberish, BytesLike]
   ): string;
   encodeFunctionData(
     functionFragment: "onERC721Received",
-    values: [string, string, BigNumberish, BytesLike]
+    values: [AddressLike, AddressLike, BigNumberish, BytesLike]
   ): string;
   encodeFunctionData(functionFragment: "owner", values?: undefined): string;
   encodeFunctionData(
@@ -156,12 +149,22 @@ export interface SimpleAccountInterface extends utils.Interface {
   ): string;
   encodeFunctionData(
     functionFragment: "tokensReceived",
-    values: [string, string, string, BigNumberish, BytesLike, BytesLike]
+    values: [
+      AddressLike,
+      AddressLike,
+      AddressLike,
+      BigNumberish,
+      BytesLike,
+      BytesLike
+    ]
   ): string;
-  encodeFunctionData(functionFragment: "upgradeTo", values: [string]): string;
+  encodeFunctionData(
+    functionFragment: "upgradeTo",
+    values: [AddressLike]
+  ): string;
   encodeFunctionData(
     functionFragment: "upgradeToAndCall",
-    values: [string, BytesLike]
+    values: [AddressLike, BytesLike]
   ): string;
   encodeFunctionData(
     functionFragment: "validateUserOp",
@@ -169,7 +172,7 @@ export interface SimpleAccountInterface extends utils.Interface {
   ): string;
   encodeFunctionData(
     functionFragment: "withdrawDepositTo",
-    values: [string, BigNumberish]
+    values: [AddressLike, BigNumberish]
   ): string;
 
   decodeFunctionResult(functionFragment: "addDeposit", data: BytesLike): Result;
@@ -220,611 +223,428 @@ export interface SimpleAccountInterface extends utils.Interface {
     functionFragment: "withdrawDepositTo",
     data: BytesLike
   ): Result;
-
-  events: {
-    "AdminChanged(address,address)": EventFragment;
-    "BeaconUpgraded(address)": EventFragment;
-    "Initialized(uint8)": EventFragment;
-    "SimpleAccountInitialized(address,address)": EventFragment;
-    "Upgraded(address)": EventFragment;
-  };
-
-  getEvent(nameOrSignatureOrTopic: "AdminChanged"): EventFragment;
-  getEvent(nameOrSignatureOrTopic: "BeaconUpgraded"): EventFragment;
-  getEvent(nameOrSignatureOrTopic: "Initialized"): EventFragment;
-  getEvent(nameOrSignatureOrTopic: "SimpleAccountInitialized"): EventFragment;
-  getEvent(nameOrSignatureOrTopic: "Upgraded"): EventFragment;
 }
 
-export interface AdminChangedEventObject {
-  previousAdmin: string;
-  newAdmin: string;
+export namespace AdminChangedEvent {
+  export type InputTuple = [previousAdmin: AddressLike, newAdmin: AddressLike];
+  export type OutputTuple = [previousAdmin: string, newAdmin: string];
+  export interface OutputObject {
+    previousAdmin: string;
+    newAdmin: string;
+  }
+  export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
+  export type Filter = TypedDeferredTopicFilter<Event>;
+  export type Log = TypedEventLog<Event>;
+  export type LogDescription = TypedLogDescription<Event>;
 }
-export type AdminChangedEvent = TypedEvent<
-  [string, string],
-  AdminChangedEventObject
->;
 
-export type AdminChangedEventFilter = TypedEventFilter<AdminChangedEvent>;
-
-export interface BeaconUpgradedEventObject {
-  beacon: string;
+export namespace BeaconUpgradedEvent {
+  export type InputTuple = [beacon: AddressLike];
+  export type OutputTuple = [beacon: string];
+  export interface OutputObject {
+    beacon: string;
+  }
+  export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
+  export type Filter = TypedDeferredTopicFilter<Event>;
+  export type Log = TypedEventLog<Event>;
+  export type LogDescription = TypedLogDescription<Event>;
 }
-export type BeaconUpgradedEvent = TypedEvent<
-  [string],
-  BeaconUpgradedEventObject
->;
 
-export type BeaconUpgradedEventFilter = TypedEventFilter<BeaconUpgradedEvent>;
-
-export interface InitializedEventObject {
-  version: number;
+export namespace InitializedEvent {
+  export type InputTuple = [version: BigNumberish];
+  export type OutputTuple = [version: bigint];
+  export interface OutputObject {
+    version: bigint;
+  }
+  export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
+  export type Filter = TypedDeferredTopicFilter<Event>;
+  export type Log = TypedEventLog<Event>;
+  export type LogDescription = TypedLogDescription<Event>;
 }
-export type InitializedEvent = TypedEvent<[number], InitializedEventObject>;
 
-export type InitializedEventFilter = TypedEventFilter<InitializedEvent>;
-
-export interface SimpleAccountInitializedEventObject {
-  entryPoint: string;
-  owner: string;
+export namespace SimpleAccountInitializedEvent {
+  export type InputTuple = [entryPoint: AddressLike, owner: AddressLike];
+  export type OutputTuple = [entryPoint: string, owner: string];
+  export interface OutputObject {
+    entryPoint: string;
+    owner: string;
+  }
+  export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
+  export type Filter = TypedDeferredTopicFilter<Event>;
+  export type Log = TypedEventLog<Event>;
+  export type LogDescription = TypedLogDescription<Event>;
 }
-export type SimpleAccountInitializedEvent = TypedEvent<
-  [string, string],
-  SimpleAccountInitializedEventObject
->;
 
-export type SimpleAccountInitializedEventFilter =
-  TypedEventFilter<SimpleAccountInitializedEvent>;
-
-export interface UpgradedEventObject {
-  implementation: string;
+export namespace UpgradedEvent {
+  export type InputTuple = [implementation: AddressLike];
+  export type OutputTuple = [implementation: string];
+  export interface OutputObject {
+    implementation: string;
+  }
+  export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
+  export type Filter = TypedDeferredTopicFilter<Event>;
+  export type Log = TypedEventLog<Event>;
+  export type LogDescription = TypedLogDescription<Event>;
 }
-export type UpgradedEvent = TypedEvent<[string], UpgradedEventObject>;
-
-export type UpgradedEventFilter = TypedEventFilter<UpgradedEvent>;
 
 export interface SimpleAccount extends BaseContract {
-  connect(signerOrProvider: Signer | Provider | string): this;
-  attach(addressOrName: string): this;
-  deployed(): Promise<this>;
+  connect(runner?: ContractRunner | null): SimpleAccount;
+  waitForDeployment(): Promise<this>;
 
   interface: SimpleAccountInterface;
 
-  queryFilter<TEvent extends TypedEvent>(
-    event: TypedEventFilter<TEvent>,
+  queryFilter<TCEvent extends TypedContractEvent>(
+    event: TCEvent,
     fromBlockOrBlockhash?: string | number | undefined,
     toBlock?: string | number | undefined
-  ): Promise<Array<TEvent>>;
+  ): Promise<Array<TypedEventLog<TCEvent>>>;
+  queryFilter<TCEvent extends TypedContractEvent>(
+    filter: TypedDeferredTopicFilter<TCEvent>,
+    fromBlockOrBlockhash?: string | number | undefined,
+    toBlock?: string | number | undefined
+  ): Promise<Array<TypedEventLog<TCEvent>>>;
 
-  listeners<TEvent extends TypedEvent>(
-    eventFilter?: TypedEventFilter<TEvent>
-  ): Array<TypedListener<TEvent>>;
-  listeners(eventName?: string): Array<Listener>;
-  removeAllListeners<TEvent extends TypedEvent>(
-    eventFilter: TypedEventFilter<TEvent>
-  ): this;
-  removeAllListeners(eventName?: string): this;
-  off: OnEvent<this>;
-  on: OnEvent<this>;
-  once: OnEvent<this>;
-  removeListener: OnEvent<this>;
+  on<TCEvent extends TypedContractEvent>(
+    event: TCEvent,
+    listener: TypedListener<TCEvent>
+  ): Promise<this>;
+  on<TCEvent extends TypedContractEvent>(
+    filter: TypedDeferredTopicFilter<TCEvent>,
+    listener: TypedListener<TCEvent>
+  ): Promise<this>;
 
-  functions: {
-    addDeposit(
-      overrides?: PayableOverrides & { from?: string }
-    ): Promise<ContractTransaction>;
+  once<TCEvent extends TypedContractEvent>(
+    event: TCEvent,
+    listener: TypedListener<TCEvent>
+  ): Promise<this>;
+  once<TCEvent extends TypedContractEvent>(
+    filter: TypedDeferredTopicFilter<TCEvent>,
+    listener: TypedListener<TCEvent>
+  ): Promise<this>;
 
-    entryPoint(overrides?: CallOverrides): Promise<[string]>;
+  listeners<TCEvent extends TypedContractEvent>(
+    event: TCEvent
+  ): Promise<Array<TypedListener<TCEvent>>>;
+  listeners(eventName?: string): Promise<Array<Listener>>;
+  removeAllListeners<TCEvent extends TypedContractEvent>(
+    event?: TCEvent
+  ): Promise<this>;
 
-    execute(
-      dest: string,
-      value: BigNumberish,
-      func: BytesLike,
-      overrides?: Overrides & { from?: string }
-    ): Promise<ContractTransaction>;
+  addDeposit: TypedContractMethod<[], [void], "payable">;
 
-    executeBatch(
-      dest: string[],
-      func: BytesLike[],
-      overrides?: Overrides & { from?: string }
-    ): Promise<ContractTransaction>;
+  entryPoint: TypedContractMethod<[], [string], "view">;
 
-    getDeposit(overrides?: CallOverrides): Promise<[BigNumber]>;
+  execute: TypedContractMethod<
+    [dest: AddressLike, value: BigNumberish, func: BytesLike],
+    [void],
+    "nonpayable"
+  >;
 
-    getNonce(overrides?: CallOverrides): Promise<[BigNumber]>;
+  executeBatch: TypedContractMethod<
+    [dest: AddressLike[], func: BytesLike[]],
+    [void],
+    "nonpayable"
+  >;
 
-    initialize(
-      anOwner: string,
-      overrides?: Overrides & { from?: string }
-    ): Promise<ContractTransaction>;
+  getDeposit: TypedContractMethod<[], [bigint], "view">;
 
-    onERC1155BatchReceived(
-      arg0: string,
-      arg1: string,
+  getNonce: TypedContractMethod<[], [bigint], "view">;
+
+  initialize: TypedContractMethod<[anOwner: AddressLike], [void], "nonpayable">;
+
+  onERC1155BatchReceived: TypedContractMethod<
+    [
+      arg0: AddressLike,
+      arg1: AddressLike,
       arg2: BigNumberish[],
       arg3: BigNumberish[],
-      arg4: BytesLike,
-      overrides?: CallOverrides
-    ): Promise<[string]>;
+      arg4: BytesLike
+    ],
+    [string],
+    "view"
+  >;
 
-    onERC1155Received(
-      arg0: string,
-      arg1: string,
+  onERC1155Received: TypedContractMethod<
+    [
+      arg0: AddressLike,
+      arg1: AddressLike,
       arg2: BigNumberish,
       arg3: BigNumberish,
-      arg4: BytesLike,
-      overrides?: CallOverrides
-    ): Promise<[string]>;
+      arg4: BytesLike
+    ],
+    [string],
+    "view"
+  >;
 
-    onERC721Received(
-      arg0: string,
-      arg1: string,
-      arg2: BigNumberish,
-      arg3: BytesLike,
-      overrides?: CallOverrides
-    ): Promise<[string]>;
+  onERC721Received: TypedContractMethod<
+    [arg0: AddressLike, arg1: AddressLike, arg2: BigNumberish, arg3: BytesLike],
+    [string],
+    "view"
+  >;
 
-    owner(overrides?: CallOverrides): Promise<[string]>;
+  owner: TypedContractMethod<[], [string], "view">;
 
-    proxiableUUID(overrides?: CallOverrides): Promise<[string]>;
+  proxiableUUID: TypedContractMethod<[], [string], "view">;
 
-    supportsInterface(
-      interfaceId: BytesLike,
-      overrides?: CallOverrides
-    ): Promise<[boolean]>;
+  supportsInterface: TypedContractMethod<
+    [interfaceId: BytesLike],
+    [boolean],
+    "view"
+  >;
 
-    tokensReceived(
-      arg0: string,
-      arg1: string,
-      arg2: string,
+  tokensReceived: TypedContractMethod<
+    [
+      arg0: AddressLike,
+      arg1: AddressLike,
+      arg2: AddressLike,
       arg3: BigNumberish,
       arg4: BytesLike,
-      arg5: BytesLike,
-      overrides?: CallOverrides
-    ): Promise<[void]>;
+      arg5: BytesLike
+    ],
+    [void],
+    "view"
+  >;
 
-    upgradeTo(
-      newImplementation: string,
-      overrides?: Overrides & { from?: string }
-    ): Promise<ContractTransaction>;
+  upgradeTo: TypedContractMethod<
+    [newImplementation: AddressLike],
+    [void],
+    "nonpayable"
+  >;
 
-    upgradeToAndCall(
-      newImplementation: string,
-      data: BytesLike,
-      overrides?: PayableOverrides & { from?: string }
-    ): Promise<ContractTransaction>;
+  upgradeToAndCall: TypedContractMethod<
+    [newImplementation: AddressLike, data: BytesLike],
+    [void],
+    "payable"
+  >;
 
-    validateUserOp(
+  validateUserOp: TypedContractMethod<
+    [
       userOp: UserOperationStruct,
       userOpHash: BytesLike,
-      missingAccountFunds: BigNumberish,
-      overrides?: Overrides & { from?: string }
-    ): Promise<ContractTransaction>;
+      missingAccountFunds: BigNumberish
+    ],
+    [bigint],
+    "nonpayable"
+  >;
 
-    withdrawDepositTo(
-      withdrawAddress: string,
-      amount: BigNumberish,
-      overrides?: Overrides & { from?: string }
-    ): Promise<ContractTransaction>;
-  };
+  withdrawDepositTo: TypedContractMethod<
+    [withdrawAddress: AddressLike, amount: BigNumberish],
+    [void],
+    "nonpayable"
+  >;
 
-  addDeposit(
-    overrides?: PayableOverrides & { from?: string }
-  ): Promise<ContractTransaction>;
+  getFunction<T extends ContractMethod = ContractMethod>(
+    key: string | FunctionFragment
+  ): T;
 
-  entryPoint(overrides?: CallOverrides): Promise<string>;
-
-  execute(
-    dest: string,
-    value: BigNumberish,
-    func: BytesLike,
-    overrides?: Overrides & { from?: string }
-  ): Promise<ContractTransaction>;
-
-  executeBatch(
-    dest: string[],
-    func: BytesLike[],
-    overrides?: Overrides & { from?: string }
-  ): Promise<ContractTransaction>;
-
-  getDeposit(overrides?: CallOverrides): Promise<BigNumber>;
-
-  getNonce(overrides?: CallOverrides): Promise<BigNumber>;
-
-  initialize(
-    anOwner: string,
-    overrides?: Overrides & { from?: string }
-  ): Promise<ContractTransaction>;
-
-  onERC1155BatchReceived(
-    arg0: string,
-    arg1: string,
-    arg2: BigNumberish[],
-    arg3: BigNumberish[],
-    arg4: BytesLike,
-    overrides?: CallOverrides
-  ): Promise<string>;
-
-  onERC1155Received(
-    arg0: string,
-    arg1: string,
-    arg2: BigNumberish,
-    arg3: BigNumberish,
-    arg4: BytesLike,
-    overrides?: CallOverrides
-  ): Promise<string>;
-
-  onERC721Received(
-    arg0: string,
-    arg1: string,
-    arg2: BigNumberish,
-    arg3: BytesLike,
-    overrides?: CallOverrides
-  ): Promise<string>;
-
-  owner(overrides?: CallOverrides): Promise<string>;
-
-  proxiableUUID(overrides?: CallOverrides): Promise<string>;
-
-  supportsInterface(
-    interfaceId: BytesLike,
-    overrides?: CallOverrides
-  ): Promise<boolean>;
-
-  tokensReceived(
-    arg0: string,
-    arg1: string,
-    arg2: string,
-    arg3: BigNumberish,
-    arg4: BytesLike,
-    arg5: BytesLike,
-    overrides?: CallOverrides
-  ): Promise<void>;
-
-  upgradeTo(
-    newImplementation: string,
-    overrides?: Overrides & { from?: string }
-  ): Promise<ContractTransaction>;
-
-  upgradeToAndCall(
-    newImplementation: string,
-    data: BytesLike,
-    overrides?: PayableOverrides & { from?: string }
-  ): Promise<ContractTransaction>;
-
-  validateUserOp(
-    userOp: UserOperationStruct,
-    userOpHash: BytesLike,
-    missingAccountFunds: BigNumberish,
-    overrides?: Overrides & { from?: string }
-  ): Promise<ContractTransaction>;
-
-  withdrawDepositTo(
-    withdrawAddress: string,
-    amount: BigNumberish,
-    overrides?: Overrides & { from?: string }
-  ): Promise<ContractTransaction>;
-
-  callStatic: {
-    addDeposit(overrides?: CallOverrides): Promise<void>;
-
-    entryPoint(overrides?: CallOverrides): Promise<string>;
-
-    execute(
-      dest: string,
-      value: BigNumberish,
-      func: BytesLike,
-      overrides?: CallOverrides
-    ): Promise<void>;
-
-    executeBatch(
-      dest: string[],
-      func: BytesLike[],
-      overrides?: CallOverrides
-    ): Promise<void>;
-
-    getDeposit(overrides?: CallOverrides): Promise<BigNumber>;
-
-    getNonce(overrides?: CallOverrides): Promise<BigNumber>;
-
-    initialize(anOwner: string, overrides?: CallOverrides): Promise<void>;
-
-    onERC1155BatchReceived(
-      arg0: string,
-      arg1: string,
+  getFunction(
+    nameOrSignature: "addDeposit"
+  ): TypedContractMethod<[], [void], "payable">;
+  getFunction(
+    nameOrSignature: "entryPoint"
+  ): TypedContractMethod<[], [string], "view">;
+  getFunction(
+    nameOrSignature: "execute"
+  ): TypedContractMethod<
+    [dest: AddressLike, value: BigNumberish, func: BytesLike],
+    [void],
+    "nonpayable"
+  >;
+  getFunction(
+    nameOrSignature: "executeBatch"
+  ): TypedContractMethod<
+    [dest: AddressLike[], func: BytesLike[]],
+    [void],
+    "nonpayable"
+  >;
+  getFunction(
+    nameOrSignature: "getDeposit"
+  ): TypedContractMethod<[], [bigint], "view">;
+  getFunction(
+    nameOrSignature: "getNonce"
+  ): TypedContractMethod<[], [bigint], "view">;
+  getFunction(
+    nameOrSignature: "initialize"
+  ): TypedContractMethod<[anOwner: AddressLike], [void], "nonpayable">;
+  getFunction(
+    nameOrSignature: "onERC1155BatchReceived"
+  ): TypedContractMethod<
+    [
+      arg0: AddressLike,
+      arg1: AddressLike,
       arg2: BigNumberish[],
       arg3: BigNumberish[],
-      arg4: BytesLike,
-      overrides?: CallOverrides
-    ): Promise<string>;
-
-    onERC1155Received(
-      arg0: string,
-      arg1: string,
+      arg4: BytesLike
+    ],
+    [string],
+    "view"
+  >;
+  getFunction(
+    nameOrSignature: "onERC1155Received"
+  ): TypedContractMethod<
+    [
+      arg0: AddressLike,
+      arg1: AddressLike,
       arg2: BigNumberish,
       arg3: BigNumberish,
-      arg4: BytesLike,
-      overrides?: CallOverrides
-    ): Promise<string>;
-
-    onERC721Received(
-      arg0: string,
-      arg1: string,
-      arg2: BigNumberish,
-      arg3: BytesLike,
-      overrides?: CallOverrides
-    ): Promise<string>;
-
-    owner(overrides?: CallOverrides): Promise<string>;
-
-    proxiableUUID(overrides?: CallOverrides): Promise<string>;
-
-    supportsInterface(
-      interfaceId: BytesLike,
-      overrides?: CallOverrides
-    ): Promise<boolean>;
-
-    tokensReceived(
-      arg0: string,
-      arg1: string,
-      arg2: string,
+      arg4: BytesLike
+    ],
+    [string],
+    "view"
+  >;
+  getFunction(
+    nameOrSignature: "onERC721Received"
+  ): TypedContractMethod<
+    [arg0: AddressLike, arg1: AddressLike, arg2: BigNumberish, arg3: BytesLike],
+    [string],
+    "view"
+  >;
+  getFunction(
+    nameOrSignature: "owner"
+  ): TypedContractMethod<[], [string], "view">;
+  getFunction(
+    nameOrSignature: "proxiableUUID"
+  ): TypedContractMethod<[], [string], "view">;
+  getFunction(
+    nameOrSignature: "supportsInterface"
+  ): TypedContractMethod<[interfaceId: BytesLike], [boolean], "view">;
+  getFunction(
+    nameOrSignature: "tokensReceived"
+  ): TypedContractMethod<
+    [
+      arg0: AddressLike,
+      arg1: AddressLike,
+      arg2: AddressLike,
       arg3: BigNumberish,
       arg4: BytesLike,
-      arg5: BytesLike,
-      overrides?: CallOverrides
-    ): Promise<void>;
-
-    upgradeTo(
-      newImplementation: string,
-      overrides?: CallOverrides
-    ): Promise<void>;
-
-    upgradeToAndCall(
-      newImplementation: string,
-      data: BytesLike,
-      overrides?: CallOverrides
-    ): Promise<void>;
-
-    validateUserOp(
+      arg5: BytesLike
+    ],
+    [void],
+    "view"
+  >;
+  getFunction(
+    nameOrSignature: "upgradeTo"
+  ): TypedContractMethod<
+    [newImplementation: AddressLike],
+    [void],
+    "nonpayable"
+  >;
+  getFunction(
+    nameOrSignature: "upgradeToAndCall"
+  ): TypedContractMethod<
+    [newImplementation: AddressLike, data: BytesLike],
+    [void],
+    "payable"
+  >;
+  getFunction(
+    nameOrSignature: "validateUserOp"
+  ): TypedContractMethod<
+    [
       userOp: UserOperationStruct,
       userOpHash: BytesLike,
-      missingAccountFunds: BigNumberish,
-      overrides?: CallOverrides
-    ): Promise<BigNumber>;
+      missingAccountFunds: BigNumberish
+    ],
+    [bigint],
+    "nonpayable"
+  >;
+  getFunction(
+    nameOrSignature: "withdrawDepositTo"
+  ): TypedContractMethod<
+    [withdrawAddress: AddressLike, amount: BigNumberish],
+    [void],
+    "nonpayable"
+  >;
 
-    withdrawDepositTo(
-      withdrawAddress: string,
-      amount: BigNumberish,
-      overrides?: CallOverrides
-    ): Promise<void>;
-  };
+  getEvent(
+    key: "AdminChanged"
+  ): TypedContractEvent<
+    AdminChangedEvent.InputTuple,
+    AdminChangedEvent.OutputTuple,
+    AdminChangedEvent.OutputObject
+  >;
+  getEvent(
+    key: "BeaconUpgraded"
+  ): TypedContractEvent<
+    BeaconUpgradedEvent.InputTuple,
+    BeaconUpgradedEvent.OutputTuple,
+    BeaconUpgradedEvent.OutputObject
+  >;
+  getEvent(
+    key: "Initialized"
+  ): TypedContractEvent<
+    InitializedEvent.InputTuple,
+    InitializedEvent.OutputTuple,
+    InitializedEvent.OutputObject
+  >;
+  getEvent(
+    key: "SimpleAccountInitialized"
+  ): TypedContractEvent<
+    SimpleAccountInitializedEvent.InputTuple,
+    SimpleAccountInitializedEvent.OutputTuple,
+    SimpleAccountInitializedEvent.OutputObject
+  >;
+  getEvent(
+    key: "Upgraded"
+  ): TypedContractEvent<
+    UpgradedEvent.InputTuple,
+    UpgradedEvent.OutputTuple,
+    UpgradedEvent.OutputObject
+  >;
 
   filters: {
-    "AdminChanged(address,address)"(
-      previousAdmin?: null,
-      newAdmin?: null
-    ): AdminChangedEventFilter;
-    AdminChanged(
-      previousAdmin?: null,
-      newAdmin?: null
-    ): AdminChangedEventFilter;
+    "AdminChanged(address,address)": TypedContractEvent<
+      AdminChangedEvent.InputTuple,
+      AdminChangedEvent.OutputTuple,
+      AdminChangedEvent.OutputObject
+    >;
+    AdminChanged: TypedContractEvent<
+      AdminChangedEvent.InputTuple,
+      AdminChangedEvent.OutputTuple,
+      AdminChangedEvent.OutputObject
+    >;
 
-    "BeaconUpgraded(address)"(
-      beacon?: string | null
-    ): BeaconUpgradedEventFilter;
-    BeaconUpgraded(beacon?: string | null): BeaconUpgradedEventFilter;
+    "BeaconUpgraded(address)": TypedContractEvent<
+      BeaconUpgradedEvent.InputTuple,
+      BeaconUpgradedEvent.OutputTuple,
+      BeaconUpgradedEvent.OutputObject
+    >;
+    BeaconUpgraded: TypedContractEvent<
+      BeaconUpgradedEvent.InputTuple,
+      BeaconUpgradedEvent.OutputTuple,
+      BeaconUpgradedEvent.OutputObject
+    >;
 
-    "Initialized(uint8)"(version?: null): InitializedEventFilter;
-    Initialized(version?: null): InitializedEventFilter;
+    "Initialized(uint8)": TypedContractEvent<
+      InitializedEvent.InputTuple,
+      InitializedEvent.OutputTuple,
+      InitializedEvent.OutputObject
+    >;
+    Initialized: TypedContractEvent<
+      InitializedEvent.InputTuple,
+      InitializedEvent.OutputTuple,
+      InitializedEvent.OutputObject
+    >;
 
-    "SimpleAccountInitialized(address,address)"(
-      entryPoint?: string | null,
-      owner?: string | null
-    ): SimpleAccountInitializedEventFilter;
-    SimpleAccountInitialized(
-      entryPoint?: string | null,
-      owner?: string | null
-    ): SimpleAccountInitializedEventFilter;
+    "SimpleAccountInitialized(address,address)": TypedContractEvent<
+      SimpleAccountInitializedEvent.InputTuple,
+      SimpleAccountInitializedEvent.OutputTuple,
+      SimpleAccountInitializedEvent.OutputObject
+    >;
+    SimpleAccountInitialized: TypedContractEvent<
+      SimpleAccountInitializedEvent.InputTuple,
+      SimpleAccountInitializedEvent.OutputTuple,
+      SimpleAccountInitializedEvent.OutputObject
+    >;
 
-    "Upgraded(address)"(implementation?: string | null): UpgradedEventFilter;
-    Upgraded(implementation?: string | null): UpgradedEventFilter;
-  };
-
-  estimateGas: {
-    addDeposit(
-      overrides?: PayableOverrides & { from?: string }
-    ): Promise<BigNumber>;
-
-    entryPoint(overrides?: CallOverrides): Promise<BigNumber>;
-
-    execute(
-      dest: string,
-      value: BigNumberish,
-      func: BytesLike,
-      overrides?: Overrides & { from?: string }
-    ): Promise<BigNumber>;
-
-    executeBatch(
-      dest: string[],
-      func: BytesLike[],
-      overrides?: Overrides & { from?: string }
-    ): Promise<BigNumber>;
-
-    getDeposit(overrides?: CallOverrides): Promise<BigNumber>;
-
-    getNonce(overrides?: CallOverrides): Promise<BigNumber>;
-
-    initialize(
-      anOwner: string,
-      overrides?: Overrides & { from?: string }
-    ): Promise<BigNumber>;
-
-    onERC1155BatchReceived(
-      arg0: string,
-      arg1: string,
-      arg2: BigNumberish[],
-      arg3: BigNumberish[],
-      arg4: BytesLike,
-      overrides?: CallOverrides
-    ): Promise<BigNumber>;
-
-    onERC1155Received(
-      arg0: string,
-      arg1: string,
-      arg2: BigNumberish,
-      arg3: BigNumberish,
-      arg4: BytesLike,
-      overrides?: CallOverrides
-    ): Promise<BigNumber>;
-
-    onERC721Received(
-      arg0: string,
-      arg1: string,
-      arg2: BigNumberish,
-      arg3: BytesLike,
-      overrides?: CallOverrides
-    ): Promise<BigNumber>;
-
-    owner(overrides?: CallOverrides): Promise<BigNumber>;
-
-    proxiableUUID(overrides?: CallOverrides): Promise<BigNumber>;
-
-    supportsInterface(
-      interfaceId: BytesLike,
-      overrides?: CallOverrides
-    ): Promise<BigNumber>;
-
-    tokensReceived(
-      arg0: string,
-      arg1: string,
-      arg2: string,
-      arg3: BigNumberish,
-      arg4: BytesLike,
-      arg5: BytesLike,
-      overrides?: CallOverrides
-    ): Promise<BigNumber>;
-
-    upgradeTo(
-      newImplementation: string,
-      overrides?: Overrides & { from?: string }
-    ): Promise<BigNumber>;
-
-    upgradeToAndCall(
-      newImplementation: string,
-      data: BytesLike,
-      overrides?: PayableOverrides & { from?: string }
-    ): Promise<BigNumber>;
-
-    validateUserOp(
-      userOp: UserOperationStruct,
-      userOpHash: BytesLike,
-      missingAccountFunds: BigNumberish,
-      overrides?: Overrides & { from?: string }
-    ): Promise<BigNumber>;
-
-    withdrawDepositTo(
-      withdrawAddress: string,
-      amount: BigNumberish,
-      overrides?: Overrides & { from?: string }
-    ): Promise<BigNumber>;
-  };
-
-  populateTransaction: {
-    addDeposit(
-      overrides?: PayableOverrides & { from?: string }
-    ): Promise<PopulatedTransaction>;
-
-    entryPoint(overrides?: CallOverrides): Promise<PopulatedTransaction>;
-
-    execute(
-      dest: string,
-      value: BigNumberish,
-      func: BytesLike,
-      overrides?: Overrides & { from?: string }
-    ): Promise<PopulatedTransaction>;
-
-    executeBatch(
-      dest: string[],
-      func: BytesLike[],
-      overrides?: Overrides & { from?: string }
-    ): Promise<PopulatedTransaction>;
-
-    getDeposit(overrides?: CallOverrides): Promise<PopulatedTransaction>;
-
-    getNonce(overrides?: CallOverrides): Promise<PopulatedTransaction>;
-
-    initialize(
-      anOwner: string,
-      overrides?: Overrides & { from?: string }
-    ): Promise<PopulatedTransaction>;
-
-    onERC1155BatchReceived(
-      arg0: string,
-      arg1: string,
-      arg2: BigNumberish[],
-      arg3: BigNumberish[],
-      arg4: BytesLike,
-      overrides?: CallOverrides
-    ): Promise<PopulatedTransaction>;
-
-    onERC1155Received(
-      arg0: string,
-      arg1: string,
-      arg2: BigNumberish,
-      arg3: BigNumberish,
-      arg4: BytesLike,
-      overrides?: CallOverrides
-    ): Promise<PopulatedTransaction>;
-
-    onERC721Received(
-      arg0: string,
-      arg1: string,
-      arg2: BigNumberish,
-      arg3: BytesLike,
-      overrides?: CallOverrides
-    ): Promise<PopulatedTransaction>;
-
-    owner(overrides?: CallOverrides): Promise<PopulatedTransaction>;
-
-    proxiableUUID(overrides?: CallOverrides): Promise<PopulatedTransaction>;
-
-    supportsInterface(
-      interfaceId: BytesLike,
-      overrides?: CallOverrides
-    ): Promise<PopulatedTransaction>;
-
-    tokensReceived(
-      arg0: string,
-      arg1: string,
-      arg2: string,
-      arg3: BigNumberish,
-      arg4: BytesLike,
-      arg5: BytesLike,
-      overrides?: CallOverrides
-    ): Promise<PopulatedTransaction>;
-
-    upgradeTo(
-      newImplementation: string,
-      overrides?: Overrides & { from?: string }
-    ): Promise<PopulatedTransaction>;
-
-    upgradeToAndCall(
-      newImplementation: string,
-      data: BytesLike,
-      overrides?: PayableOverrides & { from?: string }
-    ): Promise<PopulatedTransaction>;
-
-    validateUserOp(
-      userOp: UserOperationStruct,
-      userOpHash: BytesLike,
-      missingAccountFunds: BigNumberish,
-      overrides?: Overrides & { from?: string }
-    ): Promise<PopulatedTransaction>;
-
-    withdrawDepositTo(
-      withdrawAddress: string,
-      amount: BigNumberish,
-      overrides?: Overrides & { from?: string }
-    ): Promise<PopulatedTransaction>;
+    "Upgraded(address)": TypedContractEvent<
+      UpgradedEvent.InputTuple,
+      UpgradedEvent.OutputTuple,
+      UpgradedEvent.OutputObject
+    >;
+    Upgraded: TypedContractEvent<
+      UpgradedEvent.InputTuple,
+      UpgradedEvent.OutputTuple,
+      UpgradedEvent.OutputObject
+    >;
   };
 }

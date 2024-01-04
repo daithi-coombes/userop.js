@@ -31,9 +31,10 @@ enum Operation {
 
 export class Kernel extends UserOperationBuilder {
   private signer: ethers.Signer;
-  private provider: ethers.providers.JsonRpcProvider;
+  private provider: ethers.JsonRpcProvider;
   private entryPoint: EntryPoint;
   private factory: ECDSAKernelFactory;
+  private factoryAddress: string;
   private initCode: string;
   private multisend: Multisend;
   proxy: KernelImpl;
@@ -52,28 +53,26 @@ export class Kernel extends UserOperationBuilder {
       opts?.entryPoint || ERC4337.EntryPoint,
       this.provider
     );
+    this.factoryAddress = opts?.factory || KernelConst.ECDSAFactory;
     this.factory = ECDSAKernelFactory__factory.connect(
-      opts?.factory || KernelConst.ECDSAFactory,
+      this.factoryAddress,
       this.provider
     );
     this.initCode = "0x";
     this.multisend = Multisend__factory.connect(
-      ethers.constants.AddressZero,
+      ethers.ZeroAddress,
       this.provider
     );
-    this.proxy = Kernel__factory.connect(
-      ethers.constants.AddressZero,
-      this.provider
-    );
+    this.proxy = Kernel__factory.connect(ethers.ZeroAddress, this.provider);
   }
 
   private resolveAccount: UserOperationMiddlewareFn = async (ctx) => {
     ctx.op.nonce = await this.entryPoint.getNonce(ctx.op.sender, 0);
-    ctx.op.initCode = ctx.op.nonce.eq(0) ? this.initCode : "0x";
+    ctx.op.initCode = ctx.op.nonce == BigInt(0) ? this.initCode : "0x";
   };
 
   private sudoMode: UserOperationMiddlewareFn = async (ctx) => {
-    ctx.op.signature = ethers.utils.hexConcat([
+    ctx.op.signature = ethers.concat([
       KernelConst.Modes.Sudo,
       ctx.op.signature,
     ]);
@@ -87,14 +86,14 @@ export class Kernel extends UserOperationBuilder {
     const instance = new Kernel(signer, rpcUrl, opts);
 
     try {
-      instance.initCode = await ethers.utils.hexConcat([
-        instance.factory.address,
+      instance.initCode = await ethers.concat([
+        instance.factoryAddress,
         instance.factory.interface.encodeFunctionData("createAccount", [
           await instance.signer.getAddress(),
-          ethers.BigNumber.from(opts?.salt ?? 0),
+          BigInt(opts?.salt ?? 0),
         ]),
       ]);
-      await instance.entryPoint.callStatic.getSenderAddress(instance.initCode);
+      await instance.entryPoint.getSenderAddress(instance.initCode);
 
       throw new Error("getSenderAddress: unexpected result");
     } catch (error: any) {
@@ -113,11 +112,11 @@ export class Kernel extends UserOperationBuilder {
 
     const base = instance
       .useDefaults({
-        sender: instance.proxy.address,
-        signature: ethers.utils.hexConcat([
+        sender: await instance.proxy.getAddress(),
+        signature: ethers.concat([
           KernelConst.Modes.Sudo,
           await instance.signer.signMessage(
-            ethers.utils.arrayify(ethers.utils.keccak256("0xdead"))
+            ethers.getBytes(ethers.keccak256("0xdead"))
           ),
         ]),
       })
@@ -144,19 +143,13 @@ export class Kernel extends UserOperationBuilder {
     );
   }
 
-  executeBatch(calls: Array<ICall>) {
+  async executeBatch(calls: Array<ICall>) {
     const data = this.multisend.interface.encodeFunctionData("multiSend", [
-      ethers.utils.hexConcat(
+      ethers.concat(
         calls.map((c) =>
-          ethers.utils.solidityPack(
+          ethers.solidityPacked(
             ["uint8", "address", "uint256", "uint256", "bytes"],
-            [
-              Operation.Call,
-              c.to,
-              c.value,
-              ethers.utils.hexDataLength(c.data),
-              c.data,
-            ]
+            [Operation.Call, c.to, c.value, c.data.length, c.data]
           )
         )
       ),
@@ -164,8 +157,8 @@ export class Kernel extends UserOperationBuilder {
 
     return this.setCallData(
       this.proxy.interface.encodeFunctionData("execute", [
-        this.multisend.address,
-        ethers.constants.Zero,
+        await this.multisend.getAddress(),
+        BigInt(0),
         data,
         Operation.DelegateCall,
       ])

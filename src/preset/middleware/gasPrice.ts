@@ -1,30 +1,32 @@
-import { ethers } from "ethers";
+import { JsonRpcProvider } from "ethers";
 import { UserOperationMiddlewareFn } from "../../types";
 
-const eip1559GasPrice = async (provider: ethers.providers.JsonRpcProvider) => {
+const eip1559GasPrice = async (provider: JsonRpcProvider) => {
   const [fee, block] = await Promise.all([
     provider.send("eth_maxPriorityFeePerGas", []),
     provider.getBlock("latest"),
   ]);
 
-  const tip = ethers.BigNumber.from(fee);
-  const buffer = tip.div(100).mul(13);
-  const maxPriorityFeePerGas = tip.add(buffer);
-  const maxFeePerGas = block.baseFeePerGas
-    ? block.baseFeePerGas.mul(2).add(maxPriorityFeePerGas)
+  const tip = BigInt(fee);
+  const buffer = (tip / BigInt(100)) * BigInt(13);
+  const maxPriorityFeePerGas = tip + buffer;
+  const maxFeePerGas: bigint = block?.baseFeePerGas
+    ? block.baseFeePerGas
+      ? BigInt(0)
+      : block.baseFeePerGas * BigInt(2) + maxPriorityFeePerGas
     : maxPriorityFeePerGas;
 
   return { maxFeePerGas, maxPriorityFeePerGas };
 };
 
-const legacyGasPrice = async (provider: ethers.providers.JsonRpcProvider) => {
-  const gas = await provider.getGasPrice();
+const legacyGasPrice = async (provider: JsonRpcProvider) => {
+  const gas: bigint = (await provider.getFeeData()).gasPrice || BigInt(0);
 
   return { maxFeePerGas: gas, maxPriorityFeePerGas: gas };
 };
 
 export const getGasPrice =
-  (provider: ethers.providers.JsonRpcProvider): UserOperationMiddlewareFn =>
+  (provider: JsonRpcProvider): UserOperationMiddlewareFn =>
   async (ctx) => {
     let eip1559Error;
     try {

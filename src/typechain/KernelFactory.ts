@@ -3,40 +3,29 @@
 /* eslint-disable */
 import type {
   BaseContract,
-  BigNumber,
   BigNumberish,
   BytesLike,
-  CallOverrides,
-  ContractTransaction,
-  Overrides,
-  PopulatedTransaction,
-  Signer,
-  utils,
-} from "ethers";
-import type {
   FunctionFragment,
   Result,
+  Interface,
   EventFragment,
-} from "@ethersproject/abi";
-import type { Listener, Provider } from "@ethersproject/providers";
+  AddressLike,
+  ContractRunner,
+  ContractMethod,
+  Listener,
+} from "ethers";
 import type {
-  TypedEventFilter,
-  TypedEvent,
+  TypedContractEvent,
+  TypedDeferredTopicFilter,
+  TypedEventLog,
+  TypedLogDescription,
   TypedListener,
-  OnEvent,
+  TypedContractMethod,
 } from "./common";
 
-export interface KernelFactoryInterface extends utils.Interface {
-  functions: {
-    "createAccount(address,bytes,uint256)": FunctionFragment;
-    "entryPoint()": FunctionFragment;
-    "getAccountAddress(address,bytes,uint256)": FunctionFragment;
-    "kernelTemplate()": FunctionFragment;
-    "nextTemplate()": FunctionFragment;
-  };
-
+export interface KernelFactoryInterface extends Interface {
   getFunction(
-    nameOrSignatureOrTopic:
+    nameOrSignature:
       | "createAccount"
       | "entryPoint"
       | "getAccountAddress"
@@ -44,9 +33,11 @@ export interface KernelFactoryInterface extends utils.Interface {
       | "nextTemplate"
   ): FunctionFragment;
 
+  getEvent(nameOrSignatureOrTopic: "AccountCreated"): EventFragment;
+
   encodeFunctionData(
     functionFragment: "createAccount",
-    values: [string, BytesLike, BigNumberish]
+    values: [AddressLike, BytesLike, BigNumberish]
   ): string;
   encodeFunctionData(
     functionFragment: "entryPoint",
@@ -54,7 +45,7 @@ export interface KernelFactoryInterface extends utils.Interface {
   ): string;
   encodeFunctionData(
     functionFragment: "getAccountAddress",
-    values: [string, BytesLike, BigNumberish]
+    values: [AddressLike, BytesLike, BigNumberish]
   ): string;
   encodeFunctionData(
     functionFragment: "kernelTemplate",
@@ -82,173 +73,140 @@ export interface KernelFactoryInterface extends utils.Interface {
     functionFragment: "nextTemplate",
     data: BytesLike
   ): Result;
-
-  events: {
-    "AccountCreated(address,address,bytes,uint256)": EventFragment;
-  };
-
-  getEvent(nameOrSignatureOrTopic: "AccountCreated"): EventFragment;
 }
 
-export interface AccountCreatedEventObject {
-  account: string;
-  validator: string;
-  data: string;
-  index: BigNumber;
+export namespace AccountCreatedEvent {
+  export type InputTuple = [
+    account: AddressLike,
+    validator: AddressLike,
+    data: BytesLike,
+    index: BigNumberish
+  ];
+  export type OutputTuple = [
+    account: string,
+    validator: string,
+    data: string,
+    index: bigint
+  ];
+  export interface OutputObject {
+    account: string;
+    validator: string;
+    data: string;
+    index: bigint;
+  }
+  export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
+  export type Filter = TypedDeferredTopicFilter<Event>;
+  export type Log = TypedEventLog<Event>;
+  export type LogDescription = TypedLogDescription<Event>;
 }
-export type AccountCreatedEvent = TypedEvent<
-  [string, string, string, BigNumber],
-  AccountCreatedEventObject
->;
-
-export type AccountCreatedEventFilter = TypedEventFilter<AccountCreatedEvent>;
 
 export interface KernelFactory extends BaseContract {
-  connect(signerOrProvider: Signer | Provider | string): this;
-  attach(addressOrName: string): this;
-  deployed(): Promise<this>;
+  connect(runner?: ContractRunner | null): KernelFactory;
+  waitForDeployment(): Promise<this>;
 
   interface: KernelFactoryInterface;
 
-  queryFilter<TEvent extends TypedEvent>(
-    event: TypedEventFilter<TEvent>,
+  queryFilter<TCEvent extends TypedContractEvent>(
+    event: TCEvent,
     fromBlockOrBlockhash?: string | number | undefined,
     toBlock?: string | number | undefined
-  ): Promise<Array<TEvent>>;
+  ): Promise<Array<TypedEventLog<TCEvent>>>;
+  queryFilter<TCEvent extends TypedContractEvent>(
+    filter: TypedDeferredTopicFilter<TCEvent>,
+    fromBlockOrBlockhash?: string | number | undefined,
+    toBlock?: string | number | undefined
+  ): Promise<Array<TypedEventLog<TCEvent>>>;
 
-  listeners<TEvent extends TypedEvent>(
-    eventFilter?: TypedEventFilter<TEvent>
-  ): Array<TypedListener<TEvent>>;
-  listeners(eventName?: string): Array<Listener>;
-  removeAllListeners<TEvent extends TypedEvent>(
-    eventFilter: TypedEventFilter<TEvent>
-  ): this;
-  removeAllListeners(eventName?: string): this;
-  off: OnEvent<this>;
-  on: OnEvent<this>;
-  once: OnEvent<this>;
-  removeListener: OnEvent<this>;
+  on<TCEvent extends TypedContractEvent>(
+    event: TCEvent,
+    listener: TypedListener<TCEvent>
+  ): Promise<this>;
+  on<TCEvent extends TypedContractEvent>(
+    filter: TypedDeferredTopicFilter<TCEvent>,
+    listener: TypedListener<TCEvent>
+  ): Promise<this>;
 
-  functions: {
-    createAccount(
-      _validator: string,
-      _data: BytesLike,
-      _index: BigNumberish,
-      overrides?: Overrides & { from?: string }
-    ): Promise<ContractTransaction>;
+  once<TCEvent extends TypedContractEvent>(
+    event: TCEvent,
+    listener: TypedListener<TCEvent>
+  ): Promise<this>;
+  once<TCEvent extends TypedContractEvent>(
+    filter: TypedDeferredTopicFilter<TCEvent>,
+    listener: TypedListener<TCEvent>
+  ): Promise<this>;
 
-    entryPoint(overrides?: CallOverrides): Promise<[string]>;
+  listeners<TCEvent extends TypedContractEvent>(
+    event: TCEvent
+  ): Promise<Array<TypedListener<TCEvent>>>;
+  listeners(eventName?: string): Promise<Array<Listener>>;
+  removeAllListeners<TCEvent extends TypedContractEvent>(
+    event?: TCEvent
+  ): Promise<this>;
 
-    getAccountAddress(
-      _validator: string,
-      _data: BytesLike,
-      _index: BigNumberish,
-      overrides?: CallOverrides
-    ): Promise<[string]>;
+  createAccount: TypedContractMethod<
+    [_validator: AddressLike, _data: BytesLike, _index: BigNumberish],
+    [string],
+    "nonpayable"
+  >;
 
-    kernelTemplate(overrides?: CallOverrides): Promise<[string]>;
+  entryPoint: TypedContractMethod<[], [string], "view">;
 
-    nextTemplate(overrides?: CallOverrides): Promise<[string]>;
-  };
+  getAccountAddress: TypedContractMethod<
+    [_validator: AddressLike, _data: BytesLike, _index: BigNumberish],
+    [string],
+    "view"
+  >;
 
-  createAccount(
-    _validator: string,
-    _data: BytesLike,
-    _index: BigNumberish,
-    overrides?: Overrides & { from?: string }
-  ): Promise<ContractTransaction>;
+  kernelTemplate: TypedContractMethod<[], [string], "view">;
 
-  entryPoint(overrides?: CallOverrides): Promise<string>;
+  nextTemplate: TypedContractMethod<[], [string], "view">;
 
-  getAccountAddress(
-    _validator: string,
-    _data: BytesLike,
-    _index: BigNumberish,
-    overrides?: CallOverrides
-  ): Promise<string>;
+  getFunction<T extends ContractMethod = ContractMethod>(
+    key: string | FunctionFragment
+  ): T;
 
-  kernelTemplate(overrides?: CallOverrides): Promise<string>;
+  getFunction(
+    nameOrSignature: "createAccount"
+  ): TypedContractMethod<
+    [_validator: AddressLike, _data: BytesLike, _index: BigNumberish],
+    [string],
+    "nonpayable"
+  >;
+  getFunction(
+    nameOrSignature: "entryPoint"
+  ): TypedContractMethod<[], [string], "view">;
+  getFunction(
+    nameOrSignature: "getAccountAddress"
+  ): TypedContractMethod<
+    [_validator: AddressLike, _data: BytesLike, _index: BigNumberish],
+    [string],
+    "view"
+  >;
+  getFunction(
+    nameOrSignature: "kernelTemplate"
+  ): TypedContractMethod<[], [string], "view">;
+  getFunction(
+    nameOrSignature: "nextTemplate"
+  ): TypedContractMethod<[], [string], "view">;
 
-  nextTemplate(overrides?: CallOverrides): Promise<string>;
-
-  callStatic: {
-    createAccount(
-      _validator: string,
-      _data: BytesLike,
-      _index: BigNumberish,
-      overrides?: CallOverrides
-    ): Promise<string>;
-
-    entryPoint(overrides?: CallOverrides): Promise<string>;
-
-    getAccountAddress(
-      _validator: string,
-      _data: BytesLike,
-      _index: BigNumberish,
-      overrides?: CallOverrides
-    ): Promise<string>;
-
-    kernelTemplate(overrides?: CallOverrides): Promise<string>;
-
-    nextTemplate(overrides?: CallOverrides): Promise<string>;
-  };
+  getEvent(
+    key: "AccountCreated"
+  ): TypedContractEvent<
+    AccountCreatedEvent.InputTuple,
+    AccountCreatedEvent.OutputTuple,
+    AccountCreatedEvent.OutputObject
+  >;
 
   filters: {
-    "AccountCreated(address,address,bytes,uint256)"(
-      account?: string | null,
-      validator?: string | null,
-      data?: null,
-      index?: null
-    ): AccountCreatedEventFilter;
-    AccountCreated(
-      account?: string | null,
-      validator?: string | null,
-      data?: null,
-      index?: null
-    ): AccountCreatedEventFilter;
-  };
-
-  estimateGas: {
-    createAccount(
-      _validator: string,
-      _data: BytesLike,
-      _index: BigNumberish,
-      overrides?: Overrides & { from?: string }
-    ): Promise<BigNumber>;
-
-    entryPoint(overrides?: CallOverrides): Promise<BigNumber>;
-
-    getAccountAddress(
-      _validator: string,
-      _data: BytesLike,
-      _index: BigNumberish,
-      overrides?: CallOverrides
-    ): Promise<BigNumber>;
-
-    kernelTemplate(overrides?: CallOverrides): Promise<BigNumber>;
-
-    nextTemplate(overrides?: CallOverrides): Promise<BigNumber>;
-  };
-
-  populateTransaction: {
-    createAccount(
-      _validator: string,
-      _data: BytesLike,
-      _index: BigNumberish,
-      overrides?: Overrides & { from?: string }
-    ): Promise<PopulatedTransaction>;
-
-    entryPoint(overrides?: CallOverrides): Promise<PopulatedTransaction>;
-
-    getAccountAddress(
-      _validator: string,
-      _data: BytesLike,
-      _index: BigNumberish,
-      overrides?: CallOverrides
-    ): Promise<PopulatedTransaction>;
-
-    kernelTemplate(overrides?: CallOverrides): Promise<PopulatedTransaction>;
-
-    nextTemplate(overrides?: CallOverrides): Promise<PopulatedTransaction>;
+    "AccountCreated(address,address,bytes,uint256)": TypedContractEvent<
+      AccountCreatedEvent.InputTuple,
+      AccountCreatedEvent.OutputTuple,
+      AccountCreatedEvent.OutputObject
+    >;
+    AccountCreated: TypedContractEvent<
+      AccountCreatedEvent.InputTuple,
+      AccountCreatedEvent.OutputTuple,
+      AccountCreatedEvent.OutputObject
+    >;
   };
 }

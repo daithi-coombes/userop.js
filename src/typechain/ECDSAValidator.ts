@@ -3,31 +3,28 @@
 /* eslint-disable */
 import type {
   BaseContract,
-  BigNumber,
   BigNumberish,
   BytesLike,
-  CallOverrides,
-  ContractTransaction,
-  Overrides,
-  PopulatedTransaction,
-  Signer,
-  utils,
-} from "ethers";
-import type {
   FunctionFragment,
   Result,
+  Interface,
   EventFragment,
-} from "@ethersproject/abi";
-import type { Listener, Provider } from "@ethersproject/providers";
+  AddressLike,
+  ContractRunner,
+  ContractMethod,
+  Listener,
+} from "ethers";
 import type {
-  TypedEventFilter,
-  TypedEvent,
+  TypedContractEvent,
+  TypedDeferredTopicFilter,
+  TypedEventLog,
+  TypedLogDescription,
   TypedListener,
-  OnEvent,
+  TypedContractMethod,
 } from "./common";
 
 export type UserOperationStruct = {
-  sender: string;
+  sender: AddressLike;
   nonce: BigNumberish;
   initCode: BytesLike;
   callData: BytesLike;
@@ -41,42 +38,34 @@ export type UserOperationStruct = {
 };
 
 export type UserOperationStructOutput = [
-  string,
-  BigNumber,
-  string,
-  string,
-  BigNumber,
-  BigNumber,
-  BigNumber,
-  BigNumber,
-  BigNumber,
-  string,
-  string
+  sender: string,
+  nonce: bigint,
+  initCode: string,
+  callData: string,
+  callGasLimit: bigint,
+  verificationGasLimit: bigint,
+  preVerificationGas: bigint,
+  maxFeePerGas: bigint,
+  maxPriorityFeePerGas: bigint,
+  paymasterAndData: string,
+  signature: string
 ] & {
   sender: string;
-  nonce: BigNumber;
+  nonce: bigint;
   initCode: string;
   callData: string;
-  callGasLimit: BigNumber;
-  verificationGasLimit: BigNumber;
-  preVerificationGas: BigNumber;
-  maxFeePerGas: BigNumber;
-  maxPriorityFeePerGas: BigNumber;
+  callGasLimit: bigint;
+  verificationGasLimit: bigint;
+  preVerificationGas: bigint;
+  maxFeePerGas: bigint;
+  maxPriorityFeePerGas: bigint;
   paymasterAndData: string;
   signature: string;
 };
 
-export interface ECDSAValidatorInterface extends utils.Interface {
-  functions: {
-    "disable(bytes)": FunctionFragment;
-    "ecdsaValidatorStorage(address)": FunctionFragment;
-    "enable(bytes)": FunctionFragment;
-    "validateSignature(bytes32,bytes)": FunctionFragment;
-    "validateUserOp((address,uint256,bytes,bytes,uint256,uint256,uint256,uint256,uint256,bytes,bytes),bytes32,uint256)": FunctionFragment;
-  };
-
+export interface ECDSAValidatorInterface extends Interface {
   getFunction(
-    nameOrSignatureOrTopic:
+    nameOrSignature:
       | "disable"
       | "ecdsaValidatorStorage"
       | "enable"
@@ -84,10 +73,12 @@ export interface ECDSAValidatorInterface extends utils.Interface {
       | "validateUserOp"
   ): FunctionFragment;
 
+  getEvent(nameOrSignatureOrTopic: "OwnerChanged"): EventFragment;
+
   encodeFunctionData(functionFragment: "disable", values: [BytesLike]): string;
   encodeFunctionData(
     functionFragment: "ecdsaValidatorStorage",
-    values: [string]
+    values: [AddressLike]
   ): string;
   encodeFunctionData(functionFragment: "enable", values: [BytesLike]): string;
   encodeFunctionData(
@@ -113,204 +104,141 @@ export interface ECDSAValidatorInterface extends utils.Interface {
     functionFragment: "validateUserOp",
     data: BytesLike
   ): Result;
-
-  events: {
-    "OwnerChanged(address,address,address)": EventFragment;
-  };
-
-  getEvent(nameOrSignatureOrTopic: "OwnerChanged"): EventFragment;
 }
 
-export interface OwnerChangedEventObject {
-  kernel: string;
-  oldOwner: string;
-  newOwner: string;
+export namespace OwnerChangedEvent {
+  export type InputTuple = [
+    kernel: AddressLike,
+    oldOwner: AddressLike,
+    newOwner: AddressLike
+  ];
+  export type OutputTuple = [
+    kernel: string,
+    oldOwner: string,
+    newOwner: string
+  ];
+  export interface OutputObject {
+    kernel: string;
+    oldOwner: string;
+    newOwner: string;
+  }
+  export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
+  export type Filter = TypedDeferredTopicFilter<Event>;
+  export type Log = TypedEventLog<Event>;
+  export type LogDescription = TypedLogDescription<Event>;
 }
-export type OwnerChangedEvent = TypedEvent<
-  [string, string, string],
-  OwnerChangedEventObject
->;
-
-export type OwnerChangedEventFilter = TypedEventFilter<OwnerChangedEvent>;
 
 export interface ECDSAValidator extends BaseContract {
-  connect(signerOrProvider: Signer | Provider | string): this;
-  attach(addressOrName: string): this;
-  deployed(): Promise<this>;
+  connect(runner?: ContractRunner | null): ECDSAValidator;
+  waitForDeployment(): Promise<this>;
 
   interface: ECDSAValidatorInterface;
 
-  queryFilter<TEvent extends TypedEvent>(
-    event: TypedEventFilter<TEvent>,
+  queryFilter<TCEvent extends TypedContractEvent>(
+    event: TCEvent,
     fromBlockOrBlockhash?: string | number | undefined,
     toBlock?: string | number | undefined
-  ): Promise<Array<TEvent>>;
+  ): Promise<Array<TypedEventLog<TCEvent>>>;
+  queryFilter<TCEvent extends TypedContractEvent>(
+    filter: TypedDeferredTopicFilter<TCEvent>,
+    fromBlockOrBlockhash?: string | number | undefined,
+    toBlock?: string | number | undefined
+  ): Promise<Array<TypedEventLog<TCEvent>>>;
 
-  listeners<TEvent extends TypedEvent>(
-    eventFilter?: TypedEventFilter<TEvent>
-  ): Array<TypedListener<TEvent>>;
-  listeners(eventName?: string): Array<Listener>;
-  removeAllListeners<TEvent extends TypedEvent>(
-    eventFilter: TypedEventFilter<TEvent>
-  ): this;
-  removeAllListeners(eventName?: string): this;
-  off: OnEvent<this>;
-  on: OnEvent<this>;
-  once: OnEvent<this>;
-  removeListener: OnEvent<this>;
+  on<TCEvent extends TypedContractEvent>(
+    event: TCEvent,
+    listener: TypedListener<TCEvent>
+  ): Promise<this>;
+  on<TCEvent extends TypedContractEvent>(
+    filter: TypedDeferredTopicFilter<TCEvent>,
+    listener: TypedListener<TCEvent>
+  ): Promise<this>;
 
-  functions: {
-    disable(
-      arg0: BytesLike,
-      overrides?: Overrides & { from?: string }
-    ): Promise<ContractTransaction>;
+  once<TCEvent extends TypedContractEvent>(
+    event: TCEvent,
+    listener: TypedListener<TCEvent>
+  ): Promise<this>;
+  once<TCEvent extends TypedContractEvent>(
+    filter: TypedDeferredTopicFilter<TCEvent>,
+    listener: TypedListener<TCEvent>
+  ): Promise<this>;
 
-    ecdsaValidatorStorage(
-      arg0: string,
-      overrides?: CallOverrides
-    ): Promise<[string] & { owner: string }>;
+  listeners<TCEvent extends TypedContractEvent>(
+    event: TCEvent
+  ): Promise<Array<TypedListener<TCEvent>>>;
+  listeners(eventName?: string): Promise<Array<Listener>>;
+  removeAllListeners<TCEvent extends TypedContractEvent>(
+    event?: TCEvent
+  ): Promise<this>;
 
-    enable(
-      _data: BytesLike,
-      overrides?: Overrides & { from?: string }
-    ): Promise<ContractTransaction>;
+  disable: TypedContractMethod<[arg0: BytesLike], [void], "nonpayable">;
 
-    validateSignature(
-      hash: BytesLike,
-      signature: BytesLike,
-      overrides?: CallOverrides
-    ): Promise<[BigNumber]>;
+  ecdsaValidatorStorage: TypedContractMethod<
+    [arg0: AddressLike],
+    [string],
+    "view"
+  >;
 
-    validateUserOp(
-      _userOp: UserOperationStruct,
-      _userOpHash: BytesLike,
-      arg2: BigNumberish,
-      overrides?: CallOverrides
-    ): Promise<[BigNumber] & { validationData: BigNumber }>;
-  };
+  enable: TypedContractMethod<[_data: BytesLike], [void], "nonpayable">;
 
-  disable(
-    arg0: BytesLike,
-    overrides?: Overrides & { from?: string }
-  ): Promise<ContractTransaction>;
+  validateSignature: TypedContractMethod<
+    [hash: BytesLike, signature: BytesLike],
+    [bigint],
+    "view"
+  >;
 
-  ecdsaValidatorStorage(
-    arg0: string,
-    overrides?: CallOverrides
-  ): Promise<string>;
+  validateUserOp: TypedContractMethod<
+    [_userOp: UserOperationStruct, _userOpHash: BytesLike, arg2: BigNumberish],
+    [bigint],
+    "view"
+  >;
 
-  enable(
-    _data: BytesLike,
-    overrides?: Overrides & { from?: string }
-  ): Promise<ContractTransaction>;
+  getFunction<T extends ContractMethod = ContractMethod>(
+    key: string | FunctionFragment
+  ): T;
 
-  validateSignature(
-    hash: BytesLike,
-    signature: BytesLike,
-    overrides?: CallOverrides
-  ): Promise<BigNumber>;
+  getFunction(
+    nameOrSignature: "disable"
+  ): TypedContractMethod<[arg0: BytesLike], [void], "nonpayable">;
+  getFunction(
+    nameOrSignature: "ecdsaValidatorStorage"
+  ): TypedContractMethod<[arg0: AddressLike], [string], "view">;
+  getFunction(
+    nameOrSignature: "enable"
+  ): TypedContractMethod<[_data: BytesLike], [void], "nonpayable">;
+  getFunction(
+    nameOrSignature: "validateSignature"
+  ): TypedContractMethod<
+    [hash: BytesLike, signature: BytesLike],
+    [bigint],
+    "view"
+  >;
+  getFunction(
+    nameOrSignature: "validateUserOp"
+  ): TypedContractMethod<
+    [_userOp: UserOperationStruct, _userOpHash: BytesLike, arg2: BigNumberish],
+    [bigint],
+    "view"
+  >;
 
-  validateUserOp(
-    _userOp: UserOperationStruct,
-    _userOpHash: BytesLike,
-    arg2: BigNumberish,
-    overrides?: CallOverrides
-  ): Promise<BigNumber>;
-
-  callStatic: {
-    disable(arg0: BytesLike, overrides?: CallOverrides): Promise<void>;
-
-    ecdsaValidatorStorage(
-      arg0: string,
-      overrides?: CallOverrides
-    ): Promise<string>;
-
-    enable(_data: BytesLike, overrides?: CallOverrides): Promise<void>;
-
-    validateSignature(
-      hash: BytesLike,
-      signature: BytesLike,
-      overrides?: CallOverrides
-    ): Promise<BigNumber>;
-
-    validateUserOp(
-      _userOp: UserOperationStruct,
-      _userOpHash: BytesLike,
-      arg2: BigNumberish,
-      overrides?: CallOverrides
-    ): Promise<BigNumber>;
-  };
+  getEvent(
+    key: "OwnerChanged"
+  ): TypedContractEvent<
+    OwnerChangedEvent.InputTuple,
+    OwnerChangedEvent.OutputTuple,
+    OwnerChangedEvent.OutputObject
+  >;
 
   filters: {
-    "OwnerChanged(address,address,address)"(
-      kernel?: string | null,
-      oldOwner?: string | null,
-      newOwner?: string | null
-    ): OwnerChangedEventFilter;
-    OwnerChanged(
-      kernel?: string | null,
-      oldOwner?: string | null,
-      newOwner?: string | null
-    ): OwnerChangedEventFilter;
-  };
-
-  estimateGas: {
-    disable(
-      arg0: BytesLike,
-      overrides?: Overrides & { from?: string }
-    ): Promise<BigNumber>;
-
-    ecdsaValidatorStorage(
-      arg0: string,
-      overrides?: CallOverrides
-    ): Promise<BigNumber>;
-
-    enable(
-      _data: BytesLike,
-      overrides?: Overrides & { from?: string }
-    ): Promise<BigNumber>;
-
-    validateSignature(
-      hash: BytesLike,
-      signature: BytesLike,
-      overrides?: CallOverrides
-    ): Promise<BigNumber>;
-
-    validateUserOp(
-      _userOp: UserOperationStruct,
-      _userOpHash: BytesLike,
-      arg2: BigNumberish,
-      overrides?: CallOverrides
-    ): Promise<BigNumber>;
-  };
-
-  populateTransaction: {
-    disable(
-      arg0: BytesLike,
-      overrides?: Overrides & { from?: string }
-    ): Promise<PopulatedTransaction>;
-
-    ecdsaValidatorStorage(
-      arg0: string,
-      overrides?: CallOverrides
-    ): Promise<PopulatedTransaction>;
-
-    enable(
-      _data: BytesLike,
-      overrides?: Overrides & { from?: string }
-    ): Promise<PopulatedTransaction>;
-
-    validateSignature(
-      hash: BytesLike,
-      signature: BytesLike,
-      overrides?: CallOverrides
-    ): Promise<PopulatedTransaction>;
-
-    validateUserOp(
-      _userOp: UserOperationStruct,
-      _userOpHash: BytesLike,
-      arg2: BigNumberish,
-      overrides?: CallOverrides
-    ): Promise<PopulatedTransaction>;
+    "OwnerChanged(address,address,address)": TypedContractEvent<
+      OwnerChangedEvent.InputTuple,
+      OwnerChangedEvent.OutputTuple,
+      OwnerChangedEvent.OutputObject
+    >;
+    OwnerChanged: TypedContractEvent<
+      OwnerChangedEvent.InputTuple,
+      OwnerChangedEvent.OutputTuple,
+      OwnerChangedEvent.OutputObject
+    >;
   };
 }

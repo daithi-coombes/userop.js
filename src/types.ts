@@ -1,10 +1,10 @@
-import { BigNumberish, BytesLike, ethers } from "ethers";
+import { BytesLike, ethers } from "ethers";
 import { UserOperationEventEvent } from "./typechain/EntryPoint";
 
 export interface ISateOverrideAccount {
-  nonce: BigNumberish;
+  nonce: bigint;
   code: BytesLike;
-  balance: BigNumberish;
+  balance: bigint;
   state: Record<string, BytesLike>;
   stateDiff: Record<string, BytesLike>;
 }
@@ -13,14 +13,14 @@ export type StateOverrideSet = Record<string, Partial<ISateOverrideAccount>>;
 
 export interface IUserOperation {
   sender: string;
-  nonce: BigNumberish;
+  nonce: bigint;
   initCode: BytesLike;
   callData: BytesLike;
-  callGasLimit: BigNumberish;
-  verificationGasLimit: BigNumberish;
-  preVerificationGas: BigNumberish;
-  maxFeePerGas: BigNumberish;
-  maxPriorityFeePerGas: BigNumberish;
+  callGasLimit: bigint;
+  verificationGasLimit: bigint;
+  preVerificationGas: bigint;
+  maxFeePerGas: bigint;
+  maxPriorityFeePerGas: bigint;
   paymasterAndData: BytesLike;
   signature: BytesLike;
 }
@@ -32,7 +32,7 @@ export type UserOperationMiddlewareFn = (
 export interface IUserOperationMiddlewareCtx {
   op: IUserOperation;
   entryPoint: string;
-  chainId: BigNumberish;
+  chainId: bigint;
   stateOverrides?: StateOverrideSet;
 
   // A userOpHash is a unique hash of op + entryPoint + chainId.
@@ -52,13 +52,13 @@ export interface ISendUserOperationOpts {
 
 export interface ISendUserOperationResponse {
   userOpHash: string;
-  wait: () => Promise<UserOperationEventEvent | null>;
+  wait: () => Promise<UserOperationEventEvent.Event | null>;
 }
 
 export interface IPresetBuilderOpts {
   entryPoint?: string;
   factory?: string;
-  salt?: BigNumberish;
+  salt?: bigint;
   nonceKey?: number;
   paymasterMiddleware?: UserOperationMiddlewareFn;
   overrideBundlerRpc?: string;
@@ -69,6 +69,6 @@ export interface ISigner extends Pick<ethers.Signer, "signMessage"> {}
 
 export interface ICall {
   to: string;
-  value: BigNumberish;
+  value: bigint;
   data: BytesLike;
 }

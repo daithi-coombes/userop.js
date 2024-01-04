@@ -3,37 +3,27 @@
 /* eslint-disable */
 import type {
   BaseContract,
-  BigNumber,
   BigNumberish,
   BytesLike,
-  CallOverrides,
-  ContractTransaction,
-  Overrides,
-  PopulatedTransaction,
-  Signer,
-  utils,
+  FunctionFragment,
+  Result,
+  Interface,
+  AddressLike,
+  ContractRunner,
+  ContractMethod,
+  Listener,
 } from "ethers";
-import type { FunctionFragment, Result } from "@ethersproject/abi";
-import type { Listener, Provider } from "@ethersproject/providers";
 import type {
-  TypedEventFilter,
-  TypedEvent,
+  TypedContractEvent,
+  TypedDeferredTopicFilter,
+  TypedEventLog,
   TypedListener,
-  OnEvent,
+  TypedContractMethod,
 } from "./common";
 
-export interface SimpleAccountFactoryInterface extends utils.Interface {
-  functions: {
-    "accountImplementation()": FunctionFragment;
-    "createAccount(address,uint256)": FunctionFragment;
-    "getAddress(address,uint256)": FunctionFragment;
-  };
-
+export interface SimpleAccountFactoryInterface extends Interface {
   getFunction(
-    nameOrSignatureOrTopic:
-      | "accountImplementation"
-      | "createAccount"
-      | "getAddress"
+    nameOrSignature: "accountImplementation" | "createAccount" | "getAddress"
   ): FunctionFragment;
 
   encodeFunctionData(
@@ -42,11 +32,11 @@ export interface SimpleAccountFactoryInterface extends utils.Interface {
   ): string;
   encodeFunctionData(
     functionFragment: "createAccount",
-    values: [string, BigNumberish]
+    values: [AddressLike, BigNumberish]
   ): string;
   encodeFunctionData(
     functionFragment: "getAddress",
-    values: [string, BigNumberish]
+    values: [AddressLike, BigNumberish]
   ): string;
 
   decodeFunctionResult(
@@ -58,115 +48,86 @@ export interface SimpleAccountFactoryInterface extends utils.Interface {
     data: BytesLike
   ): Result;
   decodeFunctionResult(functionFragment: "getAddress", data: BytesLike): Result;
-
-  events: {};
 }
 
 export interface SimpleAccountFactory extends BaseContract {
-  connect(signerOrProvider: Signer | Provider | string): this;
-  attach(addressOrName: string): this;
-  deployed(): Promise<this>;
+  connect(runner?: ContractRunner | null): SimpleAccountFactory;
+  waitForDeployment(): Promise<this>;
 
   interface: SimpleAccountFactoryInterface;
 
-  queryFilter<TEvent extends TypedEvent>(
-    event: TypedEventFilter<TEvent>,
+  queryFilter<TCEvent extends TypedContractEvent>(
+    event: TCEvent,
     fromBlockOrBlockhash?: string | number | undefined,
     toBlock?: string | number | undefined
-  ): Promise<Array<TEvent>>;
+  ): Promise<Array<TypedEventLog<TCEvent>>>;
+  queryFilter<TCEvent extends TypedContractEvent>(
+    filter: TypedDeferredTopicFilter<TCEvent>,
+    fromBlockOrBlockhash?: string | number | undefined,
+    toBlock?: string | number | undefined
+  ): Promise<Array<TypedEventLog<TCEvent>>>;
 
-  listeners<TEvent extends TypedEvent>(
-    eventFilter?: TypedEventFilter<TEvent>
-  ): Array<TypedListener<TEvent>>;
-  listeners(eventName?: string): Array<Listener>;
-  removeAllListeners<TEvent extends TypedEvent>(
-    eventFilter: TypedEventFilter<TEvent>
-  ): this;
-  removeAllListeners(eventName?: string): this;
-  off: OnEvent<this>;
-  on: OnEvent<this>;
-  once: OnEvent<this>;
-  removeListener: OnEvent<this>;
+  on<TCEvent extends TypedContractEvent>(
+    event: TCEvent,
+    listener: TypedListener<TCEvent>
+  ): Promise<this>;
+  on<TCEvent extends TypedContractEvent>(
+    filter: TypedDeferredTopicFilter<TCEvent>,
+    listener: TypedListener<TCEvent>
+  ): Promise<this>;
 
-  functions: {
-    accountImplementation(overrides?: CallOverrides): Promise<[string]>;
+  once<TCEvent extends TypedContractEvent>(
+    event: TCEvent,
+    listener: TypedListener<TCEvent>
+  ): Promise<this>;
+  once<TCEvent extends TypedContractEvent>(
+    filter: TypedDeferredTopicFilter<TCEvent>,
+    listener: TypedListener<TCEvent>
+  ): Promise<this>;
 
-    createAccount(
-      owner: string,
-      salt: BigNumberish,
-      overrides?: Overrides & { from?: string }
-    ): Promise<ContractTransaction>;
+  listeners<TCEvent extends TypedContractEvent>(
+    event: TCEvent
+  ): Promise<Array<TypedListener<TCEvent>>>;
+  listeners(eventName?: string): Promise<Array<Listener>>;
+  removeAllListeners<TCEvent extends TypedContractEvent>(
+    event?: TCEvent
+  ): Promise<this>;
 
-    getAddress(
-      owner: string,
-      salt: BigNumberish,
-      overrides?: CallOverrides
-    ): Promise<[string]>;
-  };
+  accountImplementation: TypedContractMethod<[], [string], "view">;
 
-  accountImplementation(overrides?: CallOverrides): Promise<string>;
+  createAccount: TypedContractMethod<
+    [owner: AddressLike, salt: BigNumberish],
+    [string],
+    "nonpayable"
+  >;
 
-  createAccount(
-    owner: string,
-    salt: BigNumberish,
-    overrides?: Overrides & { from?: string }
-  ): Promise<ContractTransaction>;
+  getAddress: TypedContractMethod<
+    [owner: AddressLike, salt: BigNumberish],
+    [string],
+    "view"
+  >;
 
-  getAddress(
-    owner: string,
-    salt: BigNumberish,
-    overrides?: CallOverrides
-  ): Promise<string>;
+  getFunction<T extends ContractMethod = ContractMethod>(
+    key: string | FunctionFragment
+  ): T;
 
-  callStatic: {
-    accountImplementation(overrides?: CallOverrides): Promise<string>;
-
-    createAccount(
-      owner: string,
-      salt: BigNumberish,
-      overrides?: CallOverrides
-    ): Promise<string>;
-
-    getAddress(
-      owner: string,
-      salt: BigNumberish,
-      overrides?: CallOverrides
-    ): Promise<string>;
-  };
+  getFunction(
+    nameOrSignature: "accountImplementation"
+  ): TypedContractMethod<[], [string], "view">;
+  getFunction(
+    nameOrSignature: "createAccount"
+  ): TypedContractMethod<
+    [owner: AddressLike, salt: BigNumberish],
+    [string],
+    "nonpayable"
+  >;
+  getFunction(
+    nameOrSignature: "getAddress"
+  ): TypedContractMethod<
+    [owner: AddressLike, salt: BigNumberish],
+    [string],
+    "view"
+  >;
 
   filters: {};
-
-  estimateGas: {
-    accountImplementation(overrides?: CallOverrides): Promise<BigNumber>;
-
-    createAccount(
-      owner: string,
-      salt: BigNumberish,
-      overrides?: Overrides & { from?: string }
-    ): Promise<BigNumber>;
-
-    getAddress(
-      owner: string,
-      salt: BigNumberish,
-      overrides?: CallOverrides
-    ): Promise<BigNumber>;
-  };
-
-  populateTransaction: {
-    accountImplementation(
-      overrides?: CallOverrides
-    ): Promise<PopulatedTransaction>;
-
-    createAccount(
-      owner: string,
-      salt: BigNumberish,
-      overrides?: Overrides & { from?: string }
-    ): Promise<PopulatedTransaction>;
-
-    getAddress(
-      owner: string,
-      salt: BigNumberish,
-      overrides?: CallOverrides
-    ): Promise<PopulatedTransaction>;
-  };
 }

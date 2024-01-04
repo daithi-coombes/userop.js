@@ -3,45 +3,47 @@
 /* eslint-disable */
 import type {
   BaseContract,
-  BigNumber,
   BigNumberish,
   BytesLike,
-  CallOverrides,
-  ContractTransaction,
-  Overrides,
-  PopulatedTransaction,
-  Signer,
-  utils,
-} from "ethers";
-import type {
   FunctionFragment,
   Result,
+  Interface,
   EventFragment,
-} from "@ethersproject/abi";
-import type { Listener, Provider } from "@ethersproject/providers";
+  AddressLike,
+  ContractRunner,
+  ContractMethod,
+  Listener,
+} from "ethers";
 import type {
-  TypedEventFilter,
-  TypedEvent,
+  TypedContractEvent,
+  TypedDeferredTopicFilter,
+  TypedEventLog,
+  TypedLogDescription,
   TypedListener,
-  OnEvent,
+  TypedContractMethod,
 } from "./common";
 
 export type ExecutionDetailStruct = {
   validUntil: BigNumberish;
   validAfter: BigNumberish;
-  executor: string;
-  validator: string;
+  executor: AddressLike;
+  validator: AddressLike;
 };
 
-export type ExecutionDetailStructOutput = [number, number, string, string] & {
-  validUntil: number;
-  validAfter: number;
+export type ExecutionDetailStructOutput = [
+  validUntil: bigint,
+  validAfter: bigint,
+  executor: string,
+  validator: string
+] & {
+  validUntil: bigint;
+  validAfter: bigint;
   executor: string;
   validator: string;
 };
 
 export type UserOperationStruct = {
-  sender: string;
+  sender: AddressLike;
   nonce: BigNumberish;
   initCode: BytesLike;
   callData: BytesLike;
@@ -55,57 +57,34 @@ export type UserOperationStruct = {
 };
 
 export type UserOperationStructOutput = [
-  string,
-  BigNumber,
-  string,
-  string,
-  BigNumber,
-  BigNumber,
-  BigNumber,
-  BigNumber,
-  BigNumber,
-  string,
-  string
+  sender: string,
+  nonce: bigint,
+  initCode: string,
+  callData: string,
+  callGasLimit: bigint,
+  verificationGasLimit: bigint,
+  preVerificationGas: bigint,
+  maxFeePerGas: bigint,
+  maxPriorityFeePerGas: bigint,
+  paymasterAndData: string,
+  signature: string
 ] & {
   sender: string;
-  nonce: BigNumber;
+  nonce: bigint;
   initCode: string;
   callData: string;
-  callGasLimit: BigNumber;
-  verificationGasLimit: BigNumber;
-  preVerificationGas: BigNumber;
-  maxFeePerGas: BigNumber;
-  maxPriorityFeePerGas: BigNumber;
+  callGasLimit: bigint;
+  verificationGasLimit: bigint;
+  preVerificationGas: bigint;
+  maxFeePerGas: bigint;
+  maxPriorityFeePerGas: bigint;
   paymasterAndData: string;
   signature: string;
 };
 
-export interface KernelInterface extends utils.Interface {
-  functions: {
-    "disableMode(bytes4)": FunctionFragment;
-    "entryPoint()": FunctionFragment;
-    "execute(address,uint256,bytes,uint8)": FunctionFragment;
-    "getDefaultValidator()": FunctionFragment;
-    "getDisabledMode()": FunctionFragment;
-    "getExecution(bytes4)": FunctionFragment;
-    "getLastDisabledTime()": FunctionFragment;
-    "getNonce(uint192)": FunctionFragment;
-    "getNonce()": FunctionFragment;
-    "initialize(address,bytes)": FunctionFragment;
-    "isValidSignature(bytes32,bytes)": FunctionFragment;
-    "name()": FunctionFragment;
-    "onERC1155BatchReceived(address,address,uint256[],uint256[],bytes)": FunctionFragment;
-    "onERC1155Received(address,address,uint256,uint256,bytes)": FunctionFragment;
-    "onERC721Received(address,address,uint256,bytes)": FunctionFragment;
-    "setDefaultValidator(address,bytes)": FunctionFragment;
-    "setExecution(bytes4,address,address,uint48,uint48,bytes)": FunctionFragment;
-    "upgradeTo(address)": FunctionFragment;
-    "validateUserOp((address,uint256,bytes,bytes,uint256,uint256,uint256,uint256,uint256,bytes,bytes),bytes32,uint256)": FunctionFragment;
-    "version()": FunctionFragment;
-  };
-
+export interface KernelInterface extends Interface {
   getFunction(
-    nameOrSignatureOrTopic:
+    nameOrSignature:
       | "disableMode"
       | "entryPoint"
       | "execute"
@@ -128,6 +107,13 @@ export interface KernelInterface extends utils.Interface {
       | "version"
   ): FunctionFragment;
 
+  getEvent(
+    nameOrSignatureOrTopic:
+      | "DefaultValidatorChanged"
+      | "ExecutionChanged"
+      | "Upgraded"
+  ): EventFragment;
+
   encodeFunctionData(
     functionFragment: "disableMode",
     values: [BytesLike]
@@ -138,7 +124,7 @@ export interface KernelInterface extends utils.Interface {
   ): string;
   encodeFunctionData(
     functionFragment: "execute",
-    values: [string, BigNumberish, BytesLike, BigNumberish]
+    values: [AddressLike, BigNumberish, BytesLike, BigNumberish]
   ): string;
   encodeFunctionData(
     functionFragment: "getDefaultValidator",
@@ -166,7 +152,7 @@ export interface KernelInterface extends utils.Interface {
   ): string;
   encodeFunctionData(
     functionFragment: "initialize",
-    values: [string, BytesLike]
+    values: [AddressLike, BytesLike]
   ): string;
   encodeFunctionData(
     functionFragment: "isValidSignature",
@@ -175,25 +161,41 @@ export interface KernelInterface extends utils.Interface {
   encodeFunctionData(functionFragment: "name", values?: undefined): string;
   encodeFunctionData(
     functionFragment: "onERC1155BatchReceived",
-    values: [string, string, BigNumberish[], BigNumberish[], BytesLike]
+    values: [
+      AddressLike,
+      AddressLike,
+      BigNumberish[],
+      BigNumberish[],
+      BytesLike
+    ]
   ): string;
   encodeFunctionData(
     functionFragment: "onERC1155Received",
-    values: [string, string, BigNumberish, BigNumberish, BytesLike]
+    values: [AddressLike, AddressLike, BigNumberish, BigNumberish, BytesLike]
   ): string;
   encodeFunctionData(
     functionFragment: "onERC721Received",
-    values: [string, string, BigNumberish, BytesLike]
+    values: [AddressLike, AddressLike, BigNumberish, BytesLike]
   ): string;
   encodeFunctionData(
     functionFragment: "setDefaultValidator",
-    values: [string, BytesLike]
+    values: [AddressLike, BytesLike]
   ): string;
   encodeFunctionData(
     functionFragment: "setExecution",
-    values: [BytesLike, string, string, BigNumberish, BigNumberish, BytesLike]
+    values: [
+      BytesLike,
+      AddressLike,
+      AddressLike,
+      BigNumberish,
+      BigNumberish,
+      BytesLike
+    ]
   ): string;
-  encodeFunctionData(functionFragment: "upgradeTo", values: [string]): string;
+  encodeFunctionData(
+    functionFragment: "upgradeTo",
+    values: [AddressLike]
+  ): string;
   encodeFunctionData(
     functionFragment: "validateUserOp",
     values: [UserOperationStruct, BytesLike, BigNumberish]
@@ -259,625 +261,412 @@ export interface KernelInterface extends utils.Interface {
     data: BytesLike
   ): Result;
   decodeFunctionResult(functionFragment: "version", data: BytesLike): Result;
-
-  events: {
-    "DefaultValidatorChanged(address,address)": EventFragment;
-    "ExecutionChanged(bytes4,address,address)": EventFragment;
-    "Upgraded(address)": EventFragment;
-  };
-
-  getEvent(nameOrSignatureOrTopic: "DefaultValidatorChanged"): EventFragment;
-  getEvent(nameOrSignatureOrTopic: "ExecutionChanged"): EventFragment;
-  getEvent(nameOrSignatureOrTopic: "Upgraded"): EventFragment;
 }
 
-export interface DefaultValidatorChangedEventObject {
-  oldValidator: string;
-  newValidator: string;
+export namespace DefaultValidatorChangedEvent {
+  export type InputTuple = [
+    oldValidator: AddressLike,
+    newValidator: AddressLike
+  ];
+  export type OutputTuple = [oldValidator: string, newValidator: string];
+  export interface OutputObject {
+    oldValidator: string;
+    newValidator: string;
+  }
+  export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
+  export type Filter = TypedDeferredTopicFilter<Event>;
+  export type Log = TypedEventLog<Event>;
+  export type LogDescription = TypedLogDescription<Event>;
 }
-export type DefaultValidatorChangedEvent = TypedEvent<
-  [string, string],
-  DefaultValidatorChangedEventObject
->;
 
-export type DefaultValidatorChangedEventFilter =
-  TypedEventFilter<DefaultValidatorChangedEvent>;
-
-export interface ExecutionChangedEventObject {
-  selector: string;
-  executor: string;
-  validator: string;
+export namespace ExecutionChangedEvent {
+  export type InputTuple = [
+    selector: BytesLike,
+    executor: AddressLike,
+    validator: AddressLike
+  ];
+  export type OutputTuple = [
+    selector: string,
+    executor: string,
+    validator: string
+  ];
+  export interface OutputObject {
+    selector: string;
+    executor: string;
+    validator: string;
+  }
+  export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
+  export type Filter = TypedDeferredTopicFilter<Event>;
+  export type Log = TypedEventLog<Event>;
+  export type LogDescription = TypedLogDescription<Event>;
 }
-export type ExecutionChangedEvent = TypedEvent<
-  [string, string, string],
-  ExecutionChangedEventObject
->;
 
-export type ExecutionChangedEventFilter =
-  TypedEventFilter<ExecutionChangedEvent>;
-
-export interface UpgradedEventObject {
-  newImplementation: string;
+export namespace UpgradedEvent {
+  export type InputTuple = [newImplementation: AddressLike];
+  export type OutputTuple = [newImplementation: string];
+  export interface OutputObject {
+    newImplementation: string;
+  }
+  export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
+  export type Filter = TypedDeferredTopicFilter<Event>;
+  export type Log = TypedEventLog<Event>;
+  export type LogDescription = TypedLogDescription<Event>;
 }
-export type UpgradedEvent = TypedEvent<[string], UpgradedEventObject>;
-
-export type UpgradedEventFilter = TypedEventFilter<UpgradedEvent>;
 
 export interface Kernel extends BaseContract {
-  connect(signerOrProvider: Signer | Provider | string): this;
-  attach(addressOrName: string): this;
-  deployed(): Promise<this>;
+  connect(runner?: ContractRunner | null): Kernel;
+  waitForDeployment(): Promise<this>;
 
   interface: KernelInterface;
 
-  queryFilter<TEvent extends TypedEvent>(
-    event: TypedEventFilter<TEvent>,
+  queryFilter<TCEvent extends TypedContractEvent>(
+    event: TCEvent,
     fromBlockOrBlockhash?: string | number | undefined,
     toBlock?: string | number | undefined
-  ): Promise<Array<TEvent>>;
+  ): Promise<Array<TypedEventLog<TCEvent>>>;
+  queryFilter<TCEvent extends TypedContractEvent>(
+    filter: TypedDeferredTopicFilter<TCEvent>,
+    fromBlockOrBlockhash?: string | number | undefined,
+    toBlock?: string | number | undefined
+  ): Promise<Array<TypedEventLog<TCEvent>>>;
 
-  listeners<TEvent extends TypedEvent>(
-    eventFilter?: TypedEventFilter<TEvent>
-  ): Array<TypedListener<TEvent>>;
-  listeners(eventName?: string): Array<Listener>;
-  removeAllListeners<TEvent extends TypedEvent>(
-    eventFilter: TypedEventFilter<TEvent>
-  ): this;
-  removeAllListeners(eventName?: string): this;
-  off: OnEvent<this>;
-  on: OnEvent<this>;
-  once: OnEvent<this>;
-  removeListener: OnEvent<this>;
+  on<TCEvent extends TypedContractEvent>(
+    event: TCEvent,
+    listener: TypedListener<TCEvent>
+  ): Promise<this>;
+  on<TCEvent extends TypedContractEvent>(
+    filter: TypedDeferredTopicFilter<TCEvent>,
+    listener: TypedListener<TCEvent>
+  ): Promise<this>;
 
-  functions: {
-    disableMode(
-      _disableFlag: BytesLike,
-      overrides?: Overrides & { from?: string }
-    ): Promise<ContractTransaction>;
+  once<TCEvent extends TypedContractEvent>(
+    event: TCEvent,
+    listener: TypedListener<TCEvent>
+  ): Promise<this>;
+  once<TCEvent extends TypedContractEvent>(
+    filter: TypedDeferredTopicFilter<TCEvent>,
+    listener: TypedListener<TCEvent>
+  ): Promise<this>;
 
-    entryPoint(overrides?: CallOverrides): Promise<[string]>;
+  listeners<TCEvent extends TypedContractEvent>(
+    event: TCEvent
+  ): Promise<Array<TypedListener<TCEvent>>>;
+  listeners(eventName?: string): Promise<Array<Listener>>;
+  removeAllListeners<TCEvent extends TypedContractEvent>(
+    event?: TCEvent
+  ): Promise<this>;
 
-    execute(
-      to: string,
+  disableMode: TypedContractMethod<
+    [_disableFlag: BytesLike],
+    [void],
+    "nonpayable"
+  >;
+
+  entryPoint: TypedContractMethod<[], [string], "view">;
+
+  execute: TypedContractMethod<
+    [
+      to: AddressLike,
       value: BigNumberish,
       data: BytesLike,
-      operation: BigNumberish,
-      overrides?: Overrides & { from?: string }
-    ): Promise<ContractTransaction>;
+      operation: BigNumberish
+    ],
+    [void],
+    "nonpayable"
+  >;
 
-    getDefaultValidator(overrides?: CallOverrides): Promise<[string]>;
+  getDefaultValidator: TypedContractMethod<[], [string], "view">;
 
-    getDisabledMode(overrides?: CallOverrides): Promise<[string]>;
+  getDisabledMode: TypedContractMethod<[], [string], "view">;
 
-    getExecution(
-      _selector: BytesLike,
-      overrides?: CallOverrides
-    ): Promise<[ExecutionDetailStructOutput]>;
+  getExecution: TypedContractMethod<
+    [_selector: BytesLike],
+    [ExecutionDetailStructOutput],
+    "view"
+  >;
 
-    getLastDisabledTime(overrides?: CallOverrides): Promise<[number]>;
+  getLastDisabledTime: TypedContractMethod<[], [bigint], "view">;
 
-    "getNonce(uint192)"(
-      key: BigNumberish,
-      overrides?: CallOverrides
-    ): Promise<[BigNumber]>;
+  "getNonce(uint192)": TypedContractMethod<
+    [key: BigNumberish],
+    [bigint],
+    "view"
+  >;
 
-    "getNonce()"(overrides?: CallOverrides): Promise<[BigNumber]>;
+  "getNonce()": TypedContractMethod<[], [bigint], "view">;
 
-    initialize(
-      _defaultValidator: string,
-      _data: BytesLike,
-      overrides?: Overrides & { from?: string }
-    ): Promise<ContractTransaction>;
+  initialize: TypedContractMethod<
+    [_defaultValidator: AddressLike, _data: BytesLike],
+    [void],
+    "nonpayable"
+  >;
 
-    isValidSignature(
-      hash: BytesLike,
-      signature: BytesLike,
-      overrides?: CallOverrides
-    ): Promise<[string]>;
+  isValidSignature: TypedContractMethod<
+    [hash: BytesLike, signature: BytesLike],
+    [string],
+    "view"
+  >;
 
-    name(overrides?: CallOverrides): Promise<[string]>;
+  name: TypedContractMethod<[], [string], "view">;
 
-    onERC1155BatchReceived(
-      arg0: string,
-      arg1: string,
+  onERC1155BatchReceived: TypedContractMethod<
+    [
+      arg0: AddressLike,
+      arg1: AddressLike,
       arg2: BigNumberish[],
       arg3: BigNumberish[],
-      arg4: BytesLike,
-      overrides?: CallOverrides
-    ): Promise<[string]>;
+      arg4: BytesLike
+    ],
+    [string],
+    "view"
+  >;
 
-    onERC1155Received(
-      arg0: string,
-      arg1: string,
+  onERC1155Received: TypedContractMethod<
+    [
+      arg0: AddressLike,
+      arg1: AddressLike,
       arg2: BigNumberish,
       arg3: BigNumberish,
-      arg4: BytesLike,
-      overrides?: CallOverrides
-    ): Promise<[string]>;
+      arg4: BytesLike
+    ],
+    [string],
+    "view"
+  >;
 
-    onERC721Received(
-      arg0: string,
-      arg1: string,
-      arg2: BigNumberish,
-      arg3: BytesLike,
-      overrides?: CallOverrides
-    ): Promise<[string]>;
+  onERC721Received: TypedContractMethod<
+    [arg0: AddressLike, arg1: AddressLike, arg2: BigNumberish, arg3: BytesLike],
+    [string],
+    "view"
+  >;
 
-    setDefaultValidator(
-      _defaultValidator: string,
-      _data: BytesLike,
-      overrides?: Overrides & { from?: string }
-    ): Promise<ContractTransaction>;
+  setDefaultValidator: TypedContractMethod<
+    [_defaultValidator: AddressLike, _data: BytesLike],
+    [void],
+    "nonpayable"
+  >;
 
-    setExecution(
+  setExecution: TypedContractMethod<
+    [
       _selector: BytesLike,
-      _executor: string,
-      _validator: string,
+      _executor: AddressLike,
+      _validator: AddressLike,
       _validUntil: BigNumberish,
       _validAfter: BigNumberish,
-      _enableData: BytesLike,
-      overrides?: Overrides & { from?: string }
-    ): Promise<ContractTransaction>;
+      _enableData: BytesLike
+    ],
+    [void],
+    "nonpayable"
+  >;
 
-    upgradeTo(
-      _newImplementation: string,
-      overrides?: Overrides & { from?: string }
-    ): Promise<ContractTransaction>;
+  upgradeTo: TypedContractMethod<
+    [_newImplementation: AddressLike],
+    [void],
+    "nonpayable"
+  >;
 
-    validateUserOp(
+  validateUserOp: TypedContractMethod<
+    [
       userOp: UserOperationStruct,
       userOpHash: BytesLike,
-      missingAccountFunds: BigNumberish,
-      overrides?: Overrides & { from?: string }
-    ): Promise<ContractTransaction>;
+      missingAccountFunds: BigNumberish
+    ],
+    [bigint],
+    "nonpayable"
+  >;
 
-    version(overrides?: CallOverrides): Promise<[string]>;
-  };
+  version: TypedContractMethod<[], [string], "view">;
 
-  disableMode(
-    _disableFlag: BytesLike,
-    overrides?: Overrides & { from?: string }
-  ): Promise<ContractTransaction>;
+  getFunction<T extends ContractMethod = ContractMethod>(
+    key: string | FunctionFragment
+  ): T;
 
-  entryPoint(overrides?: CallOverrides): Promise<string>;
-
-  execute(
-    to: string,
-    value: BigNumberish,
-    data: BytesLike,
-    operation: BigNumberish,
-    overrides?: Overrides & { from?: string }
-  ): Promise<ContractTransaction>;
-
-  getDefaultValidator(overrides?: CallOverrides): Promise<string>;
-
-  getDisabledMode(overrides?: CallOverrides): Promise<string>;
-
-  getExecution(
-    _selector: BytesLike,
-    overrides?: CallOverrides
-  ): Promise<ExecutionDetailStructOutput>;
-
-  getLastDisabledTime(overrides?: CallOverrides): Promise<number>;
-
-  "getNonce(uint192)"(
-    key: BigNumberish,
-    overrides?: CallOverrides
-  ): Promise<BigNumber>;
-
-  "getNonce()"(overrides?: CallOverrides): Promise<BigNumber>;
-
-  initialize(
-    _defaultValidator: string,
-    _data: BytesLike,
-    overrides?: Overrides & { from?: string }
-  ): Promise<ContractTransaction>;
-
-  isValidSignature(
-    hash: BytesLike,
-    signature: BytesLike,
-    overrides?: CallOverrides
-  ): Promise<string>;
-
-  name(overrides?: CallOverrides): Promise<string>;
-
-  onERC1155BatchReceived(
-    arg0: string,
-    arg1: string,
-    arg2: BigNumberish[],
-    arg3: BigNumberish[],
-    arg4: BytesLike,
-    overrides?: CallOverrides
-  ): Promise<string>;
-
-  onERC1155Received(
-    arg0: string,
-    arg1: string,
-    arg2: BigNumberish,
-    arg3: BigNumberish,
-    arg4: BytesLike,
-    overrides?: CallOverrides
-  ): Promise<string>;
-
-  onERC721Received(
-    arg0: string,
-    arg1: string,
-    arg2: BigNumberish,
-    arg3: BytesLike,
-    overrides?: CallOverrides
-  ): Promise<string>;
-
-  setDefaultValidator(
-    _defaultValidator: string,
-    _data: BytesLike,
-    overrides?: Overrides & { from?: string }
-  ): Promise<ContractTransaction>;
-
-  setExecution(
-    _selector: BytesLike,
-    _executor: string,
-    _validator: string,
-    _validUntil: BigNumberish,
-    _validAfter: BigNumberish,
-    _enableData: BytesLike,
-    overrides?: Overrides & { from?: string }
-  ): Promise<ContractTransaction>;
-
-  upgradeTo(
-    _newImplementation: string,
-    overrides?: Overrides & { from?: string }
-  ): Promise<ContractTransaction>;
-
-  validateUserOp(
-    userOp: UserOperationStruct,
-    userOpHash: BytesLike,
-    missingAccountFunds: BigNumberish,
-    overrides?: Overrides & { from?: string }
-  ): Promise<ContractTransaction>;
-
-  version(overrides?: CallOverrides): Promise<string>;
-
-  callStatic: {
-    disableMode(
-      _disableFlag: BytesLike,
-      overrides?: CallOverrides
-    ): Promise<void>;
-
-    entryPoint(overrides?: CallOverrides): Promise<string>;
-
-    execute(
-      to: string,
+  getFunction(
+    nameOrSignature: "disableMode"
+  ): TypedContractMethod<[_disableFlag: BytesLike], [void], "nonpayable">;
+  getFunction(
+    nameOrSignature: "entryPoint"
+  ): TypedContractMethod<[], [string], "view">;
+  getFunction(
+    nameOrSignature: "execute"
+  ): TypedContractMethod<
+    [
+      to: AddressLike,
       value: BigNumberish,
       data: BytesLike,
-      operation: BigNumberish,
-      overrides?: CallOverrides
-    ): Promise<void>;
-
-    getDefaultValidator(overrides?: CallOverrides): Promise<string>;
-
-    getDisabledMode(overrides?: CallOverrides): Promise<string>;
-
-    getExecution(
-      _selector: BytesLike,
-      overrides?: CallOverrides
-    ): Promise<ExecutionDetailStructOutput>;
-
-    getLastDisabledTime(overrides?: CallOverrides): Promise<number>;
-
-    "getNonce(uint192)"(
-      key: BigNumberish,
-      overrides?: CallOverrides
-    ): Promise<BigNumber>;
-
-    "getNonce()"(overrides?: CallOverrides): Promise<BigNumber>;
-
-    initialize(
-      _defaultValidator: string,
-      _data: BytesLike,
-      overrides?: CallOverrides
-    ): Promise<void>;
-
-    isValidSignature(
-      hash: BytesLike,
-      signature: BytesLike,
-      overrides?: CallOverrides
-    ): Promise<string>;
-
-    name(overrides?: CallOverrides): Promise<string>;
-
-    onERC1155BatchReceived(
-      arg0: string,
-      arg1: string,
+      operation: BigNumberish
+    ],
+    [void],
+    "nonpayable"
+  >;
+  getFunction(
+    nameOrSignature: "getDefaultValidator"
+  ): TypedContractMethod<[], [string], "view">;
+  getFunction(
+    nameOrSignature: "getDisabledMode"
+  ): TypedContractMethod<[], [string], "view">;
+  getFunction(
+    nameOrSignature: "getExecution"
+  ): TypedContractMethod<
+    [_selector: BytesLike],
+    [ExecutionDetailStructOutput],
+    "view"
+  >;
+  getFunction(
+    nameOrSignature: "getLastDisabledTime"
+  ): TypedContractMethod<[], [bigint], "view">;
+  getFunction(
+    nameOrSignature: "getNonce(uint192)"
+  ): TypedContractMethod<[key: BigNumberish], [bigint], "view">;
+  getFunction(
+    nameOrSignature: "getNonce()"
+  ): TypedContractMethod<[], [bigint], "view">;
+  getFunction(
+    nameOrSignature: "initialize"
+  ): TypedContractMethod<
+    [_defaultValidator: AddressLike, _data: BytesLike],
+    [void],
+    "nonpayable"
+  >;
+  getFunction(
+    nameOrSignature: "isValidSignature"
+  ): TypedContractMethod<
+    [hash: BytesLike, signature: BytesLike],
+    [string],
+    "view"
+  >;
+  getFunction(
+    nameOrSignature: "name"
+  ): TypedContractMethod<[], [string], "view">;
+  getFunction(
+    nameOrSignature: "onERC1155BatchReceived"
+  ): TypedContractMethod<
+    [
+      arg0: AddressLike,
+      arg1: AddressLike,
       arg2: BigNumberish[],
       arg3: BigNumberish[],
-      arg4: BytesLike,
-      overrides?: CallOverrides
-    ): Promise<string>;
-
-    onERC1155Received(
-      arg0: string,
-      arg1: string,
+      arg4: BytesLike
+    ],
+    [string],
+    "view"
+  >;
+  getFunction(
+    nameOrSignature: "onERC1155Received"
+  ): TypedContractMethod<
+    [
+      arg0: AddressLike,
+      arg1: AddressLike,
       arg2: BigNumberish,
       arg3: BigNumberish,
-      arg4: BytesLike,
-      overrides?: CallOverrides
-    ): Promise<string>;
-
-    onERC721Received(
-      arg0: string,
-      arg1: string,
-      arg2: BigNumberish,
-      arg3: BytesLike,
-      overrides?: CallOverrides
-    ): Promise<string>;
-
-    setDefaultValidator(
-      _defaultValidator: string,
-      _data: BytesLike,
-      overrides?: CallOverrides
-    ): Promise<void>;
-
-    setExecution(
+      arg4: BytesLike
+    ],
+    [string],
+    "view"
+  >;
+  getFunction(
+    nameOrSignature: "onERC721Received"
+  ): TypedContractMethod<
+    [arg0: AddressLike, arg1: AddressLike, arg2: BigNumberish, arg3: BytesLike],
+    [string],
+    "view"
+  >;
+  getFunction(
+    nameOrSignature: "setDefaultValidator"
+  ): TypedContractMethod<
+    [_defaultValidator: AddressLike, _data: BytesLike],
+    [void],
+    "nonpayable"
+  >;
+  getFunction(
+    nameOrSignature: "setExecution"
+  ): TypedContractMethod<
+    [
       _selector: BytesLike,
-      _executor: string,
-      _validator: string,
+      _executor: AddressLike,
+      _validator: AddressLike,
       _validUntil: BigNumberish,
       _validAfter: BigNumberish,
-      _enableData: BytesLike,
-      overrides?: CallOverrides
-    ): Promise<void>;
-
-    upgradeTo(
-      _newImplementation: string,
-      overrides?: CallOverrides
-    ): Promise<void>;
-
-    validateUserOp(
+      _enableData: BytesLike
+    ],
+    [void],
+    "nonpayable"
+  >;
+  getFunction(
+    nameOrSignature: "upgradeTo"
+  ): TypedContractMethod<
+    [_newImplementation: AddressLike],
+    [void],
+    "nonpayable"
+  >;
+  getFunction(
+    nameOrSignature: "validateUserOp"
+  ): TypedContractMethod<
+    [
       userOp: UserOperationStruct,
       userOpHash: BytesLike,
-      missingAccountFunds: BigNumberish,
-      overrides?: CallOverrides
-    ): Promise<BigNumber>;
+      missingAccountFunds: BigNumberish
+    ],
+    [bigint],
+    "nonpayable"
+  >;
+  getFunction(
+    nameOrSignature: "version"
+  ): TypedContractMethod<[], [string], "view">;
 
-    version(overrides?: CallOverrides): Promise<string>;
-  };
+  getEvent(
+    key: "DefaultValidatorChanged"
+  ): TypedContractEvent<
+    DefaultValidatorChangedEvent.InputTuple,
+    DefaultValidatorChangedEvent.OutputTuple,
+    DefaultValidatorChangedEvent.OutputObject
+  >;
+  getEvent(
+    key: "ExecutionChanged"
+  ): TypedContractEvent<
+    ExecutionChangedEvent.InputTuple,
+    ExecutionChangedEvent.OutputTuple,
+    ExecutionChangedEvent.OutputObject
+  >;
+  getEvent(
+    key: "Upgraded"
+  ): TypedContractEvent<
+    UpgradedEvent.InputTuple,
+    UpgradedEvent.OutputTuple,
+    UpgradedEvent.OutputObject
+  >;
 
   filters: {
-    "DefaultValidatorChanged(address,address)"(
-      oldValidator?: string | null,
-      newValidator?: string | null
-    ): DefaultValidatorChangedEventFilter;
-    DefaultValidatorChanged(
-      oldValidator?: string | null,
-      newValidator?: string | null
-    ): DefaultValidatorChangedEventFilter;
+    "DefaultValidatorChanged(address,address)": TypedContractEvent<
+      DefaultValidatorChangedEvent.InputTuple,
+      DefaultValidatorChangedEvent.OutputTuple,
+      DefaultValidatorChangedEvent.OutputObject
+    >;
+    DefaultValidatorChanged: TypedContractEvent<
+      DefaultValidatorChangedEvent.InputTuple,
+      DefaultValidatorChangedEvent.OutputTuple,
+      DefaultValidatorChangedEvent.OutputObject
+    >;
 
-    "ExecutionChanged(bytes4,address,address)"(
-      selector?: BytesLike | null,
-      executor?: string | null,
-      validator?: string | null
-    ): ExecutionChangedEventFilter;
-    ExecutionChanged(
-      selector?: BytesLike | null,
-      executor?: string | null,
-      validator?: string | null
-    ): ExecutionChangedEventFilter;
+    "ExecutionChanged(bytes4,address,address)": TypedContractEvent<
+      ExecutionChangedEvent.InputTuple,
+      ExecutionChangedEvent.OutputTuple,
+      ExecutionChangedEvent.OutputObject
+    >;
+    ExecutionChanged: TypedContractEvent<
+      ExecutionChangedEvent.InputTuple,
+      ExecutionChangedEvent.OutputTuple,
+      ExecutionChangedEvent.OutputObject
+    >;
 
-    "Upgraded(address)"(newImplementation?: string | null): UpgradedEventFilter;
-    Upgraded(newImplementation?: string | null): UpgradedEventFilter;
-  };
-
-  estimateGas: {
-    disableMode(
-      _disableFlag: BytesLike,
-      overrides?: Overrides & { from?: string }
-    ): Promise<BigNumber>;
-
-    entryPoint(overrides?: CallOverrides): Promise<BigNumber>;
-
-    execute(
-      to: string,
-      value: BigNumberish,
-      data: BytesLike,
-      operation: BigNumberish,
-      overrides?: Overrides & { from?: string }
-    ): Promise<BigNumber>;
-
-    getDefaultValidator(overrides?: CallOverrides): Promise<BigNumber>;
-
-    getDisabledMode(overrides?: CallOverrides): Promise<BigNumber>;
-
-    getExecution(
-      _selector: BytesLike,
-      overrides?: CallOverrides
-    ): Promise<BigNumber>;
-
-    getLastDisabledTime(overrides?: CallOverrides): Promise<BigNumber>;
-
-    "getNonce(uint192)"(
-      key: BigNumberish,
-      overrides?: CallOverrides
-    ): Promise<BigNumber>;
-
-    "getNonce()"(overrides?: CallOverrides): Promise<BigNumber>;
-
-    initialize(
-      _defaultValidator: string,
-      _data: BytesLike,
-      overrides?: Overrides & { from?: string }
-    ): Promise<BigNumber>;
-
-    isValidSignature(
-      hash: BytesLike,
-      signature: BytesLike,
-      overrides?: CallOverrides
-    ): Promise<BigNumber>;
-
-    name(overrides?: CallOverrides): Promise<BigNumber>;
-
-    onERC1155BatchReceived(
-      arg0: string,
-      arg1: string,
-      arg2: BigNumberish[],
-      arg3: BigNumberish[],
-      arg4: BytesLike,
-      overrides?: CallOverrides
-    ): Promise<BigNumber>;
-
-    onERC1155Received(
-      arg0: string,
-      arg1: string,
-      arg2: BigNumberish,
-      arg3: BigNumberish,
-      arg4: BytesLike,
-      overrides?: CallOverrides
-    ): Promise<BigNumber>;
-
-    onERC721Received(
-      arg0: string,
-      arg1: string,
-      arg2: BigNumberish,
-      arg3: BytesLike,
-      overrides?: CallOverrides
-    ): Promise<BigNumber>;
-
-    setDefaultValidator(
-      _defaultValidator: string,
-      _data: BytesLike,
-      overrides?: Overrides & { from?: string }
-    ): Promise<BigNumber>;
-
-    setExecution(
-      _selector: BytesLike,
-      _executor: string,
-      _validator: string,
-      _validUntil: BigNumberish,
-      _validAfter: BigNumberish,
-      _enableData: BytesLike,
-      overrides?: Overrides & { from?: string }
-    ): Promise<BigNumber>;
-
-    upgradeTo(
-      _newImplementation: string,
-      overrides?: Overrides & { from?: string }
-    ): Promise<BigNumber>;
-
-    validateUserOp(
-      userOp: UserOperationStruct,
-      userOpHash: BytesLike,
-      missingAccountFunds: BigNumberish,
-      overrides?: Overrides & { from?: string }
-    ): Promise<BigNumber>;
-
-    version(overrides?: CallOverrides): Promise<BigNumber>;
-  };
-
-  populateTransaction: {
-    disableMode(
-      _disableFlag: BytesLike,
-      overrides?: Overrides & { from?: string }
-    ): Promise<PopulatedTransaction>;
-
-    entryPoint(overrides?: CallOverrides): Promise<PopulatedTransaction>;
-
-    execute(
-      to: string,
-      value: BigNumberish,
-      data: BytesLike,
-      operation: BigNumberish,
-      overrides?: Overrides & { from?: string }
-    ): Promise<PopulatedTransaction>;
-
-    getDefaultValidator(
-      overrides?: CallOverrides
-    ): Promise<PopulatedTransaction>;
-
-    getDisabledMode(overrides?: CallOverrides): Promise<PopulatedTransaction>;
-
-    getExecution(
-      _selector: BytesLike,
-      overrides?: CallOverrides
-    ): Promise<PopulatedTransaction>;
-
-    getLastDisabledTime(
-      overrides?: CallOverrides
-    ): Promise<PopulatedTransaction>;
-
-    "getNonce(uint192)"(
-      key: BigNumberish,
-      overrides?: CallOverrides
-    ): Promise<PopulatedTransaction>;
-
-    "getNonce()"(overrides?: CallOverrides): Promise<PopulatedTransaction>;
-
-    initialize(
-      _defaultValidator: string,
-      _data: BytesLike,
-      overrides?: Overrides & { from?: string }
-    ): Promise<PopulatedTransaction>;
-
-    isValidSignature(
-      hash: BytesLike,
-      signature: BytesLike,
-      overrides?: CallOverrides
-    ): Promise<PopulatedTransaction>;
-
-    name(overrides?: CallOverrides): Promise<PopulatedTransaction>;
-
-    onERC1155BatchReceived(
-      arg0: string,
-      arg1: string,
-      arg2: BigNumberish[],
-      arg3: BigNumberish[],
-      arg4: BytesLike,
-      overrides?: CallOverrides
-    ): Promise<PopulatedTransaction>;
-
-    onERC1155Received(
-      arg0: string,
-      arg1: string,
-      arg2: BigNumberish,
-      arg3: BigNumberish,
-      arg4: BytesLike,
-      overrides?: CallOverrides
-    ): Promise<PopulatedTransaction>;
-
-    onERC721Received(
-      arg0: string,
-      arg1: string,
-      arg2: BigNumberish,
-      arg3: BytesLike,
-      overrides?: CallOverrides
-    ): Promise<PopulatedTransaction>;
-
-    setDefaultValidator(
-      _defaultValidator: string,
-      _data: BytesLike,
-      overrides?: Overrides & { from?: string }
-    ): Promise<PopulatedTransaction>;
-
-    setExecution(
-      _selector: BytesLike,
-      _executor: string,
-      _validator: string,
-      _validUntil: BigNumberish,
-      _validAfter: BigNumberish,
-      _enableData: BytesLike,
-      overrides?: Overrides & { from?: string }
-    ): Promise<PopulatedTransaction>;
-
-    upgradeTo(
-      _newImplementation: string,
-      overrides?: Overrides & { from?: string }
-    ): Promise<PopulatedTransaction>;
-
-    validateUserOp(
-      userOp: UserOperationStruct,
-      userOpHash: BytesLike,
-      missingAccountFunds: BigNumberish,
-      overrides?: Overrides & { from?: string }
-    ): Promise<PopulatedTransaction>;
-
-    version(overrides?: CallOverrides): Promise<PopulatedTransaction>;
+    "Upgraded(address)": TypedContractEvent<
+      UpgradedEvent.InputTuple,
+      UpgradedEvent.OutputTuple,
+      UpgradedEvent.OutputObject
+    >;
+    Upgraded: TypedContractEvent<
+      UpgradedEvent.InputTuple,
+      UpgradedEvent.OutputTuple,
+      UpgradedEvent.OutputObject
+    >;
   };
 }

@@ -3,36 +3,27 @@
 /* eslint-disable */
 import type {
   BaseContract,
-  BigNumber,
   BigNumberish,
   BytesLike,
-  CallOverrides,
-  ContractTransaction,
-  Overrides,
-  PopulatedTransaction,
-  Signer,
-  utils,
+  FunctionFragment,
+  Result,
+  Interface,
+  AddressLike,
+  ContractRunner,
+  ContractMethod,
+  Listener,
 } from "ethers";
-import type { FunctionFragment, Result } from "@ethersproject/abi";
-import type { Listener, Provider } from "@ethersproject/providers";
 import type {
-  TypedEventFilter,
-  TypedEvent,
+  TypedContractEvent,
+  TypedDeferredTopicFilter,
+  TypedEventLog,
   TypedListener,
-  OnEvent,
+  TypedContractMethod,
 } from "./common";
 
-export interface ECDSAKernelFactoryInterface extends utils.Interface {
-  functions: {
-    "createAccount(address,uint256)": FunctionFragment;
-    "entryPoint()": FunctionFragment;
-    "getAccountAddress(address,uint256)": FunctionFragment;
-    "singletonFactory()": FunctionFragment;
-    "validator()": FunctionFragment;
-  };
-
+export interface ECDSAKernelFactoryInterface extends Interface {
   getFunction(
-    nameOrSignatureOrTopic:
+    nameOrSignature:
       | "createAccount"
       | "entryPoint"
       | "getAccountAddress"
@@ -42,7 +33,7 @@ export interface ECDSAKernelFactoryInterface extends utils.Interface {
 
   encodeFunctionData(
     functionFragment: "createAccount",
-    values: [string, BigNumberish]
+    values: [AddressLike, BigNumberish]
   ): string;
   encodeFunctionData(
     functionFragment: "entryPoint",
@@ -50,7 +41,7 @@ export interface ECDSAKernelFactoryInterface extends utils.Interface {
   ): string;
   encodeFunctionData(
     functionFragment: "getAccountAddress",
-    values: [string, BigNumberish]
+    values: [AddressLike, BigNumberish]
   ): string;
   encodeFunctionData(
     functionFragment: "singletonFactory",
@@ -72,133 +63,96 @@ export interface ECDSAKernelFactoryInterface extends utils.Interface {
     data: BytesLike
   ): Result;
   decodeFunctionResult(functionFragment: "validator", data: BytesLike): Result;
-
-  events: {};
 }
 
 export interface ECDSAKernelFactory extends BaseContract {
-  connect(signerOrProvider: Signer | Provider | string): this;
-  attach(addressOrName: string): this;
-  deployed(): Promise<this>;
+  connect(runner?: ContractRunner | null): ECDSAKernelFactory;
+  waitForDeployment(): Promise<this>;
 
   interface: ECDSAKernelFactoryInterface;
 
-  queryFilter<TEvent extends TypedEvent>(
-    event: TypedEventFilter<TEvent>,
+  queryFilter<TCEvent extends TypedContractEvent>(
+    event: TCEvent,
     fromBlockOrBlockhash?: string | number | undefined,
     toBlock?: string | number | undefined
-  ): Promise<Array<TEvent>>;
+  ): Promise<Array<TypedEventLog<TCEvent>>>;
+  queryFilter<TCEvent extends TypedContractEvent>(
+    filter: TypedDeferredTopicFilter<TCEvent>,
+    fromBlockOrBlockhash?: string | number | undefined,
+    toBlock?: string | number | undefined
+  ): Promise<Array<TypedEventLog<TCEvent>>>;
 
-  listeners<TEvent extends TypedEvent>(
-    eventFilter?: TypedEventFilter<TEvent>
-  ): Array<TypedListener<TEvent>>;
-  listeners(eventName?: string): Array<Listener>;
-  removeAllListeners<TEvent extends TypedEvent>(
-    eventFilter: TypedEventFilter<TEvent>
-  ): this;
-  removeAllListeners(eventName?: string): this;
-  off: OnEvent<this>;
-  on: OnEvent<this>;
-  once: OnEvent<this>;
-  removeListener: OnEvent<this>;
+  on<TCEvent extends TypedContractEvent>(
+    event: TCEvent,
+    listener: TypedListener<TCEvent>
+  ): Promise<this>;
+  on<TCEvent extends TypedContractEvent>(
+    filter: TypedDeferredTopicFilter<TCEvent>,
+    listener: TypedListener<TCEvent>
+  ): Promise<this>;
 
-  functions: {
-    createAccount(
-      _owner: string,
-      _index: BigNumberish,
-      overrides?: Overrides & { from?: string }
-    ): Promise<ContractTransaction>;
+  once<TCEvent extends TypedContractEvent>(
+    event: TCEvent,
+    listener: TypedListener<TCEvent>
+  ): Promise<this>;
+  once<TCEvent extends TypedContractEvent>(
+    filter: TypedDeferredTopicFilter<TCEvent>,
+    listener: TypedListener<TCEvent>
+  ): Promise<this>;
 
-    entryPoint(overrides?: CallOverrides): Promise<[string]>;
+  listeners<TCEvent extends TypedContractEvent>(
+    event: TCEvent
+  ): Promise<Array<TypedListener<TCEvent>>>;
+  listeners(eventName?: string): Promise<Array<Listener>>;
+  removeAllListeners<TCEvent extends TypedContractEvent>(
+    event?: TCEvent
+  ): Promise<this>;
 
-    getAccountAddress(
-      _owner: string,
-      _index: BigNumberish,
-      overrides?: CallOverrides
-    ): Promise<[string]>;
+  createAccount: TypedContractMethod<
+    [_owner: AddressLike, _index: BigNumberish],
+    [string],
+    "nonpayable"
+  >;
 
-    singletonFactory(overrides?: CallOverrides): Promise<[string]>;
+  entryPoint: TypedContractMethod<[], [string], "view">;
 
-    validator(overrides?: CallOverrides): Promise<[string]>;
-  };
+  getAccountAddress: TypedContractMethod<
+    [_owner: AddressLike, _index: BigNumberish],
+    [string],
+    "view"
+  >;
 
-  createAccount(
-    _owner: string,
-    _index: BigNumberish,
-    overrides?: Overrides & { from?: string }
-  ): Promise<ContractTransaction>;
+  singletonFactory: TypedContractMethod<[], [string], "view">;
 
-  entryPoint(overrides?: CallOverrides): Promise<string>;
+  validator: TypedContractMethod<[], [string], "view">;
 
-  getAccountAddress(
-    _owner: string,
-    _index: BigNumberish,
-    overrides?: CallOverrides
-  ): Promise<string>;
+  getFunction<T extends ContractMethod = ContractMethod>(
+    key: string | FunctionFragment
+  ): T;
 
-  singletonFactory(overrides?: CallOverrides): Promise<string>;
-
-  validator(overrides?: CallOverrides): Promise<string>;
-
-  callStatic: {
-    createAccount(
-      _owner: string,
-      _index: BigNumberish,
-      overrides?: CallOverrides
-    ): Promise<string>;
-
-    entryPoint(overrides?: CallOverrides): Promise<string>;
-
-    getAccountAddress(
-      _owner: string,
-      _index: BigNumberish,
-      overrides?: CallOverrides
-    ): Promise<string>;
-
-    singletonFactory(overrides?: CallOverrides): Promise<string>;
-
-    validator(overrides?: CallOverrides): Promise<string>;
-  };
+  getFunction(
+    nameOrSignature: "createAccount"
+  ): TypedContractMethod<
+    [_owner: AddressLike, _index: BigNumberish],
+    [string],
+    "nonpayable"
+  >;
+  getFunction(
+    nameOrSignature: "entryPoint"
+  ): TypedContractMethod<[], [string], "view">;
+  getFunction(
+    nameOrSignature: "getAccountAddress"
+  ): TypedContractMethod<
+    [_owner: AddressLike, _index: BigNumberish],
+    [string],
+    "view"
+  >;
+  getFunction(
+    nameOrSignature: "singletonFactory"
+  ): TypedContractMethod<[], [string], "view">;
+  getFunction(
+    nameOrSignature: "validator"
+  ): TypedContractMethod<[], [string], "view">;
 
   filters: {};
-
-  estimateGas: {
-    createAccount(
-      _owner: string,
-      _index: BigNumberish,
-      overrides?: Overrides & { from?: string }
-    ): Promise<BigNumber>;
-
-    entryPoint(overrides?: CallOverrides): Promise<BigNumber>;
-
-    getAccountAddress(
-      _owner: string,
-      _index: BigNumberish,
-      overrides?: CallOverrides
-    ): Promise<BigNumber>;
-
-    singletonFactory(overrides?: CallOverrides): Promise<BigNumber>;
-
-    validator(overrides?: CallOverrides): Promise<BigNumber>;
-  };
-
-  populateTransaction: {
-    createAccount(
-      _owner: string,
-      _index: BigNumberish,
-      overrides?: Overrides & { from?: string }
-    ): Promise<PopulatedTransaction>;
-
-    entryPoint(overrides?: CallOverrides): Promise<PopulatedTransaction>;
-
-    getAccountAddress(
-      _owner: string,
-      _index: BigNumberish,
-      overrides?: CallOverrides
-    ): Promise<PopulatedTransaction>;
-
-    singletonFactory(overrides?: CallOverrides): Promise<PopulatedTransaction>;
-
-    validator(overrides?: CallOverrides): Promise<PopulatedTransaction>;
-  };
 }

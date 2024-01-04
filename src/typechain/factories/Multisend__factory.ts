@@ -2,8 +2,7 @@
 /* tslint:disable */
 /* eslint-disable */
 
-import { Contract, Signer, utils } from "ethers";
-import type { Provider } from "@ethersproject/providers";
+import { Contract, Interface, type ContractRunner } from "ethers";
 import type { Multisend, MultisendInterface } from "../Multisend";
 
 const _abi = [
@@ -30,12 +29,9 @@ const _abi = [
 export class Multisend__factory {
   static readonly abi = _abi;
   static createInterface(): MultisendInterface {
-    return new utils.Interface(_abi) as MultisendInterface;
+    return new Interface(_abi) as MultisendInterface;
   }
-  static connect(
-    address: string,
-    signerOrProvider: Signer | Provider
-  ): Multisend {
-    return new Contract(address, _abi, signerOrProvider) as Multisend;
+  static connect(address: string, runner?: ContractRunner | null): Multisend {
+    return new Contract(address, _abi, runner) as unknown as Multisend;
   }
 }

@@ -3,31 +3,28 @@
 /* eslint-disable */
 import type {
   BaseContract,
-  BigNumber,
   BigNumberish,
   BytesLike,
-  CallOverrides,
-  ContractTransaction,
-  Overrides,
-  PopulatedTransaction,
-  Signer,
-  utils,
-} from "ethers";
-import type {
   FunctionFragment,
   Result,
+  Interface,
   EventFragment,
-} from "@ethersproject/abi";
-import type { Listener, Provider } from "@ethersproject/providers";
+  AddressLike,
+  ContractRunner,
+  ContractMethod,
+  Listener,
+} from "ethers";
 import type {
-  TypedEventFilter,
-  TypedEvent,
+  TypedContractEvent,
+  TypedDeferredTopicFilter,
+  TypedEventLog,
+  TypedLogDescription,
   TypedListener,
-  OnEvent,
+  TypedContractMethod,
 } from "./common";
 
 export type UserOperationStruct = {
-  sender: string;
+  sender: AddressLike;
   nonce: BigNumberish;
   initCode: BytesLike;
   callData: BytesLike;
@@ -41,57 +38,48 @@ export type UserOperationStruct = {
 };
 
 export type UserOperationStructOutput = [
-  string,
-  BigNumber,
-  string,
-  string,
-  BigNumber,
-  BigNumber,
-  BigNumber,
-  BigNumber,
-  BigNumber,
-  string,
-  string
+  sender: string,
+  nonce: bigint,
+  initCode: string,
+  callData: string,
+  callGasLimit: bigint,
+  verificationGasLimit: bigint,
+  preVerificationGas: bigint,
+  maxFeePerGas: bigint,
+  maxPriorityFeePerGas: bigint,
+  paymasterAndData: string,
+  signature: string
 ] & {
   sender: string;
-  nonce: BigNumber;
+  nonce: bigint;
   initCode: string;
   callData: string;
-  callGasLimit: BigNumber;
-  verificationGasLimit: BigNumber;
-  preVerificationGas: BigNumber;
-  maxFeePerGas: BigNumber;
-  maxPriorityFeePerGas: BigNumber;
+  callGasLimit: bigint;
+  verificationGasLimit: bigint;
+  preVerificationGas: bigint;
+  maxFeePerGas: bigint;
+  maxPriorityFeePerGas: bigint;
   paymasterAndData: string;
   signature: string;
 };
 
 export declare namespace IDiamondCut {
   export type FacetCutStruct = {
-    facetAddress: string;
+    facetAddress: AddressLike;
     action: BigNumberish;
     functionSelectors: BytesLike[];
   };
 
-  export type FacetCutStructOutput = [string, number, string[]] & {
-    facetAddress: string;
-    action: number;
-    functionSelectors: string[];
-  };
+  export type FacetCutStructOutput = [
+    facetAddress: string,
+    action: bigint,
+    functionSelectors: string[]
+  ] & { facetAddress: string; action: bigint; functionSelectors: string[] };
 }
 
-export interface BarzAccountFacetInterface extends utils.Interface {
-  functions: {
-    "entryPoint()": FunctionFragment;
-    "execute(address,uint256,bytes)": FunctionFragment;
-    "executeBatch(address[],uint256[],bytes[])": FunctionFragment;
-    "getNonce()": FunctionFragment;
-    "initialize(address,address,address,address,bytes)": FunctionFragment;
-    "validateUserOp((address,uint256,bytes,bytes,uint256,uint256,uint256,uint256,uint256,bytes,bytes),bytes32,uint256)": FunctionFragment;
-  };
-
+export interface BarzAccountFacetInterface extends Interface {
   getFunction(
-    nameOrSignatureOrTopic:
+    nameOrSignature:
       | "entryPoint"
       | "execute"
       | "executeBatch"
@@ -100,22 +88,30 @@ export interface BarzAccountFacetInterface extends utils.Interface {
       | "validateUserOp"
   ): FunctionFragment;
 
+  getEvent(
+    nameOrSignatureOrTopic:
+      | "AccountInitialized"
+      | "DiamondCut"
+      | "VerificationFailure"
+      | "VerificationSuccess"
+  ): EventFragment;
+
   encodeFunctionData(
     functionFragment: "entryPoint",
     values?: undefined
   ): string;
   encodeFunctionData(
     functionFragment: "execute",
-    values: [string, BigNumberish, BytesLike]
+    values: [AddressLike, BigNumberish, BytesLike]
   ): string;
   encodeFunctionData(
     functionFragment: "executeBatch",
-    values: [string[], BigNumberish[], BytesLike[]]
+    values: [AddressLike[], BigNumberish[], BytesLike[]]
   ): string;
   encodeFunctionData(functionFragment: "getNonce", values?: undefined): string;
   encodeFunctionData(
     functionFragment: "initialize",
-    values: [string, string, string, string, BytesLike]
+    values: [AddressLike, AddressLike, AddressLike, AddressLike, BytesLike]
   ): string;
   encodeFunctionData(
     functionFragment: "validateUserOp",
@@ -134,295 +130,269 @@ export interface BarzAccountFacetInterface extends utils.Interface {
     functionFragment: "validateUserOp",
     data: BytesLike
   ): Result;
-
-  events: {
-    "AccountInitialized(address,bytes)": EventFragment;
-    "DiamondCut(tuple[],address,bytes)": EventFragment;
-    "VerificationFailure(bytes32)": EventFragment;
-    "VerificationSuccess(bytes32)": EventFragment;
-  };
-
-  getEvent(nameOrSignatureOrTopic: "AccountInitialized"): EventFragment;
-  getEvent(nameOrSignatureOrTopic: "DiamondCut"): EventFragment;
-  getEvent(nameOrSignatureOrTopic: "VerificationFailure"): EventFragment;
-  getEvent(nameOrSignatureOrTopic: "VerificationSuccess"): EventFragment;
 }
 
-export interface AccountInitializedEventObject {
-  entryPoint: string;
-  ownerPublicKey: string;
+export namespace AccountInitializedEvent {
+  export type InputTuple = [entryPoint: AddressLike, ownerPublicKey: BytesLike];
+  export type OutputTuple = [entryPoint: string, ownerPublicKey: string];
+  export interface OutputObject {
+    entryPoint: string;
+    ownerPublicKey: string;
+  }
+  export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
+  export type Filter = TypedDeferredTopicFilter<Event>;
+  export type Log = TypedEventLog<Event>;
+  export type LogDescription = TypedLogDescription<Event>;
 }
-export type AccountInitializedEvent = TypedEvent<
-  [string, string],
-  AccountInitializedEventObject
->;
 
-export type AccountInitializedEventFilter =
-  TypedEventFilter<AccountInitializedEvent>;
-
-export interface DiamondCutEventObject {
-  _diamondCut: IDiamondCut.FacetCutStructOutput[];
-  _init: string;
-  _calldata: string;
+export namespace DiamondCutEvent {
+  export type InputTuple = [
+    _diamondCut: IDiamondCut.FacetCutStruct[],
+    _init: AddressLike,
+    _calldata: BytesLike
+  ];
+  export type OutputTuple = [
+    _diamondCut: IDiamondCut.FacetCutStructOutput[],
+    _init: string,
+    _calldata: string
+  ];
+  export interface OutputObject {
+    _diamondCut: IDiamondCut.FacetCutStructOutput[];
+    _init: string;
+    _calldata: string;
+  }
+  export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
+  export type Filter = TypedDeferredTopicFilter<Event>;
+  export type Log = TypedEventLog<Event>;
+  export type LogDescription = TypedLogDescription<Event>;
 }
-export type DiamondCutEvent = TypedEvent<
-  [IDiamondCut.FacetCutStructOutput[], string, string],
-  DiamondCutEventObject
->;
 
-export type DiamondCutEventFilter = TypedEventFilter<DiamondCutEvent>;
-
-export interface VerificationFailureEventObject {
-  arg0: string;
+export namespace VerificationFailureEvent {
+  export type InputTuple = [arg0: BytesLike];
+  export type OutputTuple = [arg0: string];
+  export interface OutputObject {
+    arg0: string;
+  }
+  export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
+  export type Filter = TypedDeferredTopicFilter<Event>;
+  export type Log = TypedEventLog<Event>;
+  export type LogDescription = TypedLogDescription<Event>;
 }
-export type VerificationFailureEvent = TypedEvent<
-  [string],
-  VerificationFailureEventObject
->;
 
-export type VerificationFailureEventFilter =
-  TypedEventFilter<VerificationFailureEvent>;
-
-export interface VerificationSuccessEventObject {
-  arg0: string;
+export namespace VerificationSuccessEvent {
+  export type InputTuple = [arg0: BytesLike];
+  export type OutputTuple = [arg0: string];
+  export interface OutputObject {
+    arg0: string;
+  }
+  export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
+  export type Filter = TypedDeferredTopicFilter<Event>;
+  export type Log = TypedEventLog<Event>;
+  export type LogDescription = TypedLogDescription<Event>;
 }
-export type VerificationSuccessEvent = TypedEvent<
-  [string],
-  VerificationSuccessEventObject
->;
-
-export type VerificationSuccessEventFilter =
-  TypedEventFilter<VerificationSuccessEvent>;
 
 export interface BarzAccountFacet extends BaseContract {
-  connect(signerOrProvider: Signer | Provider | string): this;
-  attach(addressOrName: string): this;
-  deployed(): Promise<this>;
+  connect(runner?: ContractRunner | null): BarzAccountFacet;
+  waitForDeployment(): Promise<this>;
 
   interface: BarzAccountFacetInterface;
 
-  queryFilter<TEvent extends TypedEvent>(
-    event: TypedEventFilter<TEvent>,
+  queryFilter<TCEvent extends TypedContractEvent>(
+    event: TCEvent,
     fromBlockOrBlockhash?: string | number | undefined,
     toBlock?: string | number | undefined
-  ): Promise<Array<TEvent>>;
+  ): Promise<Array<TypedEventLog<TCEvent>>>;
+  queryFilter<TCEvent extends TypedContractEvent>(
+    filter: TypedDeferredTopicFilter<TCEvent>,
+    fromBlockOrBlockhash?: string | number | undefined,
+    toBlock?: string | number | undefined
+  ): Promise<Array<TypedEventLog<TCEvent>>>;
 
-  listeners<TEvent extends TypedEvent>(
-    eventFilter?: TypedEventFilter<TEvent>
-  ): Array<TypedListener<TEvent>>;
-  listeners(eventName?: string): Array<Listener>;
-  removeAllListeners<TEvent extends TypedEvent>(
-    eventFilter: TypedEventFilter<TEvent>
-  ): this;
-  removeAllListeners(eventName?: string): this;
-  off: OnEvent<this>;
-  on: OnEvent<this>;
-  once: OnEvent<this>;
-  removeListener: OnEvent<this>;
+  on<TCEvent extends TypedContractEvent>(
+    event: TCEvent,
+    listener: TypedListener<TCEvent>
+  ): Promise<this>;
+  on<TCEvent extends TypedContractEvent>(
+    filter: TypedDeferredTopicFilter<TCEvent>,
+    listener: TypedListener<TCEvent>
+  ): Promise<this>;
 
-  functions: {
-    entryPoint(overrides?: CallOverrides): Promise<[string]>;
+  once<TCEvent extends TypedContractEvent>(
+    event: TCEvent,
+    listener: TypedListener<TCEvent>
+  ): Promise<this>;
+  once<TCEvent extends TypedContractEvent>(
+    filter: TypedDeferredTopicFilter<TCEvent>,
+    listener: TypedListener<TCEvent>
+  ): Promise<this>;
 
-    execute(
-      _dest: string,
-      _value: BigNumberish,
-      _func: BytesLike,
-      overrides?: Overrides & { from?: string }
-    ): Promise<ContractTransaction>;
+  listeners<TCEvent extends TypedContractEvent>(
+    event: TCEvent
+  ): Promise<Array<TypedListener<TCEvent>>>;
+  listeners(eventName?: string): Promise<Array<Listener>>;
+  removeAllListeners<TCEvent extends TypedContractEvent>(
+    event?: TCEvent
+  ): Promise<this>;
 
-    executeBatch(
-      _dest: string[],
-      _value: BigNumberish[],
-      _func: BytesLike[],
-      overrides?: Overrides & { from?: string }
-    ): Promise<ContractTransaction>;
+  entryPoint: TypedContractMethod<[], [string], "view">;
 
-    getNonce(overrides?: CallOverrides): Promise<[BigNumber]>;
+  execute: TypedContractMethod<
+    [_dest: AddressLike, _value: BigNumberish, _func: BytesLike],
+    [void],
+    "nonpayable"
+  >;
 
-    initialize(
-      _verificationFacet: string,
-      _anEntryPoint: string,
-      _facetRegistry: string,
-      _defaultFallBackHandler: string,
-      _ownerPublicKey: BytesLike,
-      overrides?: Overrides & { from?: string }
-    ): Promise<ContractTransaction>;
+  executeBatch: TypedContractMethod<
+    [_dest: AddressLike[], _value: BigNumberish[], _func: BytesLike[]],
+    [void],
+    "nonpayable"
+  >;
 
-    validateUserOp(
+  getNonce: TypedContractMethod<[], [bigint], "view">;
+
+  initialize: TypedContractMethod<
+    [
+      _verificationFacet: AddressLike,
+      _anEntryPoint: AddressLike,
+      _facetRegistry: AddressLike,
+      _defaultFallBackHandler: AddressLike,
+      _ownerPublicKey: BytesLike
+    ],
+    [bigint],
+    "nonpayable"
+  >;
+
+  validateUserOp: TypedContractMethod<
+    [
       userOp: UserOperationStruct,
       userOpHash: BytesLike,
-      missingAccountFunds: BigNumberish,
-      overrides?: Overrides & { from?: string }
-    ): Promise<ContractTransaction>;
-  };
+      missingAccountFunds: BigNumberish
+    ],
+    [bigint],
+    "nonpayable"
+  >;
 
-  entryPoint(overrides?: CallOverrides): Promise<string>;
+  getFunction<T extends ContractMethod = ContractMethod>(
+    key: string | FunctionFragment
+  ): T;
 
-  execute(
-    _dest: string,
-    _value: BigNumberish,
-    _func: BytesLike,
-    overrides?: Overrides & { from?: string }
-  ): Promise<ContractTransaction>;
-
-  executeBatch(
-    _dest: string[],
-    _value: BigNumberish[],
-    _func: BytesLike[],
-    overrides?: Overrides & { from?: string }
-  ): Promise<ContractTransaction>;
-
-  getNonce(overrides?: CallOverrides): Promise<BigNumber>;
-
-  initialize(
-    _verificationFacet: string,
-    _anEntryPoint: string,
-    _facetRegistry: string,
-    _defaultFallBackHandler: string,
-    _ownerPublicKey: BytesLike,
-    overrides?: Overrides & { from?: string }
-  ): Promise<ContractTransaction>;
-
-  validateUserOp(
-    userOp: UserOperationStruct,
-    userOpHash: BytesLike,
-    missingAccountFunds: BigNumberish,
-    overrides?: Overrides & { from?: string }
-  ): Promise<ContractTransaction>;
-
-  callStatic: {
-    entryPoint(overrides?: CallOverrides): Promise<string>;
-
-    execute(
-      _dest: string,
-      _value: BigNumberish,
-      _func: BytesLike,
-      overrides?: CallOverrides
-    ): Promise<void>;
-
-    executeBatch(
-      _dest: string[],
-      _value: BigNumberish[],
-      _func: BytesLike[],
-      overrides?: CallOverrides
-    ): Promise<void>;
-
-    getNonce(overrides?: CallOverrides): Promise<BigNumber>;
-
-    initialize(
-      _verificationFacet: string,
-      _anEntryPoint: string,
-      _facetRegistry: string,
-      _defaultFallBackHandler: string,
-      _ownerPublicKey: BytesLike,
-      overrides?: CallOverrides
-    ): Promise<BigNumber>;
-
-    validateUserOp(
+  getFunction(
+    nameOrSignature: "entryPoint"
+  ): TypedContractMethod<[], [string], "view">;
+  getFunction(
+    nameOrSignature: "execute"
+  ): TypedContractMethod<
+    [_dest: AddressLike, _value: BigNumberish, _func: BytesLike],
+    [void],
+    "nonpayable"
+  >;
+  getFunction(
+    nameOrSignature: "executeBatch"
+  ): TypedContractMethod<
+    [_dest: AddressLike[], _value: BigNumberish[], _func: BytesLike[]],
+    [void],
+    "nonpayable"
+  >;
+  getFunction(
+    nameOrSignature: "getNonce"
+  ): TypedContractMethod<[], [bigint], "view">;
+  getFunction(
+    nameOrSignature: "initialize"
+  ): TypedContractMethod<
+    [
+      _verificationFacet: AddressLike,
+      _anEntryPoint: AddressLike,
+      _facetRegistry: AddressLike,
+      _defaultFallBackHandler: AddressLike,
+      _ownerPublicKey: BytesLike
+    ],
+    [bigint],
+    "nonpayable"
+  >;
+  getFunction(
+    nameOrSignature: "validateUserOp"
+  ): TypedContractMethod<
+    [
       userOp: UserOperationStruct,
       userOpHash: BytesLike,
-      missingAccountFunds: BigNumberish,
-      overrides?: CallOverrides
-    ): Promise<BigNumber>;
-  };
+      missingAccountFunds: BigNumberish
+    ],
+    [bigint],
+    "nonpayable"
+  >;
+
+  getEvent(
+    key: "AccountInitialized"
+  ): TypedContractEvent<
+    AccountInitializedEvent.InputTuple,
+    AccountInitializedEvent.OutputTuple,
+    AccountInitializedEvent.OutputObject
+  >;
+  getEvent(
+    key: "DiamondCut"
+  ): TypedContractEvent<
+    DiamondCutEvent.InputTuple,
+    DiamondCutEvent.OutputTuple,
+    DiamondCutEvent.OutputObject
+  >;
+  getEvent(
+    key: "VerificationFailure"
+  ): TypedContractEvent<
+    VerificationFailureEvent.InputTuple,
+    VerificationFailureEvent.OutputTuple,
+    VerificationFailureEvent.OutputObject
+  >;
+  getEvent(
+    key: "VerificationSuccess"
+  ): TypedContractEvent<
+    VerificationSuccessEvent.InputTuple,
+    VerificationSuccessEvent.OutputTuple,
+    VerificationSuccessEvent.OutputObject
+  >;
 
   filters: {
-    "AccountInitialized(address,bytes)"(
-      entryPoint?: string | null,
-      ownerPublicKey?: BytesLike | null
-    ): AccountInitializedEventFilter;
-    AccountInitialized(
-      entryPoint?: string | null,
-      ownerPublicKey?: BytesLike | null
-    ): AccountInitializedEventFilter;
+    "AccountInitialized(address,bytes)": TypedContractEvent<
+      AccountInitializedEvent.InputTuple,
+      AccountInitializedEvent.OutputTuple,
+      AccountInitializedEvent.OutputObject
+    >;
+    AccountInitialized: TypedContractEvent<
+      AccountInitializedEvent.InputTuple,
+      AccountInitializedEvent.OutputTuple,
+      AccountInitializedEvent.OutputObject
+    >;
 
-    "DiamondCut(tuple[],address,bytes)"(
-      _diamondCut?: null,
-      _init?: null,
-      _calldata?: null
-    ): DiamondCutEventFilter;
-    DiamondCut(
-      _diamondCut?: null,
-      _init?: null,
-      _calldata?: null
-    ): DiamondCutEventFilter;
+    "DiamondCut(tuple[],address,bytes)": TypedContractEvent<
+      DiamondCutEvent.InputTuple,
+      DiamondCutEvent.OutputTuple,
+      DiamondCutEvent.OutputObject
+    >;
+    DiamondCut: TypedContractEvent<
+      DiamondCutEvent.InputTuple,
+      DiamondCutEvent.OutputTuple,
+      DiamondCutEvent.OutputObject
+    >;
 
-    "VerificationFailure(bytes32)"(arg0?: null): VerificationFailureEventFilter;
-    VerificationFailure(arg0?: null): VerificationFailureEventFilter;
+    "VerificationFailure(bytes32)": TypedContractEvent<
+      VerificationFailureEvent.InputTuple,
+      VerificationFailureEvent.OutputTuple,
+      VerificationFailureEvent.OutputObject
+    >;
+    VerificationFailure: TypedContractEvent<
+      VerificationFailureEvent.InputTuple,
+      VerificationFailureEvent.OutputTuple,
+      VerificationFailureEvent.OutputObject
+    >;
 
-    "VerificationSuccess(bytes32)"(arg0?: null): VerificationSuccessEventFilter;
-    VerificationSuccess(arg0?: null): VerificationSuccessEventFilter;
-  };
-
-  estimateGas: {
-    entryPoint(overrides?: CallOverrides): Promise<BigNumber>;
-
-    execute(
-      _dest: string,
-      _value: BigNumberish,
-      _func: BytesLike,
-      overrides?: Overrides & { from?: string }
-    ): Promise<BigNumber>;
-
-    executeBatch(
-      _dest: string[],
-      _value: BigNumberish[],
-      _func: BytesLike[],
-      overrides?: Overrides & { from?: string }
-    ): Promise<BigNumber>;
-
-    getNonce(overrides?: CallOverrides): Promise<BigNumber>;
-
-    initialize(
-      _verificationFacet: string,
-      _anEntryPoint: string,
-      _facetRegistry: string,
-      _defaultFallBackHandler: string,
-      _ownerPublicKey: BytesLike,
-      overrides?: Overrides & { from?: string }
-    ): Promise<BigNumber>;
-
-    validateUserOp(
-      userOp: UserOperationStruct,
-      userOpHash: BytesLike,
-      missingAccountFunds: BigNumberish,
-      overrides?: Overrides & { from?: string }
-    ): Promise<BigNumber>;
-  };
-
-  populateTransaction: {
-    entryPoint(overrides?: CallOverrides): Promise<PopulatedTransaction>;
-
-    execute(
-      _dest: string,
-      _value: BigNumberish,
-      _func: BytesLike,
-      overrides?: Overrides & { from?: string }
-    ): Promise<PopulatedTransaction>;
-
-    executeBatch(
-      _dest: string[],
-      _value: BigNumberish[],
-      _func: BytesLike[],
-      overrides?: Overrides & { from?: string }
-    ): Promise<PopulatedTransaction>;
-
-    getNonce(overrides?: CallOverrides): Promise<PopulatedTransaction>;
-
-    initialize(
-      _verificationFacet: string,
-      _anEntryPoint: string,
-      _facetRegistry: string,
-      _defaultFallBackHandler: string,
-      _ownerPublicKey: BytesLike,
-      overrides?: Overrides & { from?: string }
-    ): Promise<PopulatedTransaction>;
-
-    validateUserOp(
-      userOp: UserOperationStruct,
-      userOpHash: BytesLike,
-      missingAccountFunds: BigNumberish,
-      overrides?: Overrides & { from?: string }
-    ): Promise<PopulatedTransaction>;
+    "VerificationSuccess(bytes32)": TypedContractEvent<
+      VerificationSuccessEvent.InputTuple,
+      VerificationSuccessEvent.OutputTuple,
+      VerificationSuccessEvent.OutputObject
+    >;
+    VerificationSuccess: TypedContractEvent<
+      VerificationSuccessEvent.InputTuple,
+      VerificationSuccessEvent.OutputTuple,
+      VerificationSuccessEvent.OutputObject
+    >;
   };
 }

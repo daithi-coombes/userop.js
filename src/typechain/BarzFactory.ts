@@ -3,43 +3,29 @@
 /* eslint-disable */
 import type {
   BaseContract,
-  BigNumber,
   BigNumberish,
   BytesLike,
-  CallOverrides,
-  ContractTransaction,
-  Overrides,
-  PopulatedTransaction,
-  Signer,
-  utils,
-} from "ethers";
-import type {
   FunctionFragment,
   Result,
+  Interface,
   EventFragment,
-} from "@ethersproject/abi";
-import type { Listener, Provider } from "@ethersproject/providers";
+  AddressLike,
+  ContractRunner,
+  ContractMethod,
+  Listener,
+} from "ethers";
 import type {
-  TypedEventFilter,
-  TypedEvent,
+  TypedContractEvent,
+  TypedDeferredTopicFilter,
+  TypedEventLog,
+  TypedLogDescription,
   TypedListener,
-  OnEvent,
+  TypedContractMethod,
 } from "./common";
 
-export interface BarzFactoryInterface extends utils.Interface {
-  functions: {
-    "accountFacet()": FunctionFragment;
-    "createAccount(address,bytes,uint256)": FunctionFragment;
-    "defaultFallback()": FunctionFragment;
-    "entryPoint()": FunctionFragment;
-    "facetRegistry()": FunctionFragment;
-    "getAddress(address,bytes,uint256)": FunctionFragment;
-    "getBytecode(address,address,address,address,address,bytes)": FunctionFragment;
-    "getCreationCode()": FunctionFragment;
-  };
-
+export interface BarzFactoryInterface extends Interface {
   getFunction(
-    nameOrSignatureOrTopic:
+    nameOrSignature:
       | "accountFacet"
       | "createAccount"
       | "defaultFallback"
@@ -50,13 +36,15 @@ export interface BarzFactoryInterface extends utils.Interface {
       | "getCreationCode"
   ): FunctionFragment;
 
+  getEvent(nameOrSignatureOrTopic: "BarzDeployed"): EventFragment;
+
   encodeFunctionData(
     functionFragment: "accountFacet",
     values?: undefined
   ): string;
   encodeFunctionData(
     functionFragment: "createAccount",
-    values: [string, BytesLike, BigNumberish]
+    values: [AddressLike, BytesLike, BigNumberish]
   ): string;
   encodeFunctionData(
     functionFragment: "defaultFallback",
@@ -72,11 +60,18 @@ export interface BarzFactoryInterface extends utils.Interface {
   ): string;
   encodeFunctionData(
     functionFragment: "getAddress",
-    values: [string, BytesLike, BigNumberish]
+    values: [AddressLike, BytesLike, BigNumberish]
   ): string;
   encodeFunctionData(
     functionFragment: "getBytecode",
-    values: [string, string, string, string, string, BytesLike]
+    values: [
+      AddressLike,
+      AddressLike,
+      AddressLike,
+      AddressLike,
+      AddressLike,
+      BytesLike
+    ]
   ): string;
   encodeFunctionData(
     functionFragment: "getCreationCode",
@@ -109,229 +104,164 @@ export interface BarzFactoryInterface extends utils.Interface {
     functionFragment: "getCreationCode",
     data: BytesLike
   ): Result;
-
-  events: {
-    "BarzDeployed(address)": EventFragment;
-  };
-
-  getEvent(nameOrSignatureOrTopic: "BarzDeployed"): EventFragment;
 }
 
-export interface BarzDeployedEventObject {
-  arg0: string;
+export namespace BarzDeployedEvent {
+  export type InputTuple = [arg0: AddressLike];
+  export type OutputTuple = [arg0: string];
+  export interface OutputObject {
+    arg0: string;
+  }
+  export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
+  export type Filter = TypedDeferredTopicFilter<Event>;
+  export type Log = TypedEventLog<Event>;
+  export type LogDescription = TypedLogDescription<Event>;
 }
-export type BarzDeployedEvent = TypedEvent<[string], BarzDeployedEventObject>;
-
-export type BarzDeployedEventFilter = TypedEventFilter<BarzDeployedEvent>;
 
 export interface BarzFactory extends BaseContract {
-  connect(signerOrProvider: Signer | Provider | string): this;
-  attach(addressOrName: string): this;
-  deployed(): Promise<this>;
+  connect(runner?: ContractRunner | null): BarzFactory;
+  waitForDeployment(): Promise<this>;
 
   interface: BarzFactoryInterface;
 
-  queryFilter<TEvent extends TypedEvent>(
-    event: TypedEventFilter<TEvent>,
+  queryFilter<TCEvent extends TypedContractEvent>(
+    event: TCEvent,
     fromBlockOrBlockhash?: string | number | undefined,
     toBlock?: string | number | undefined
-  ): Promise<Array<TEvent>>;
+  ): Promise<Array<TypedEventLog<TCEvent>>>;
+  queryFilter<TCEvent extends TypedContractEvent>(
+    filter: TypedDeferredTopicFilter<TCEvent>,
+    fromBlockOrBlockhash?: string | number | undefined,
+    toBlock?: string | number | undefined
+  ): Promise<Array<TypedEventLog<TCEvent>>>;
 
-  listeners<TEvent extends TypedEvent>(
-    eventFilter?: TypedEventFilter<TEvent>
-  ): Array<TypedListener<TEvent>>;
-  listeners(eventName?: string): Array<Listener>;
-  removeAllListeners<TEvent extends TypedEvent>(
-    eventFilter: TypedEventFilter<TEvent>
-  ): this;
-  removeAllListeners(eventName?: string): this;
-  off: OnEvent<this>;
-  on: OnEvent<this>;
-  once: OnEvent<this>;
-  removeListener: OnEvent<this>;
+  on<TCEvent extends TypedContractEvent>(
+    event: TCEvent,
+    listener: TypedListener<TCEvent>
+  ): Promise<this>;
+  on<TCEvent extends TypedContractEvent>(
+    filter: TypedDeferredTopicFilter<TCEvent>,
+    listener: TypedListener<TCEvent>
+  ): Promise<this>;
 
-  functions: {
-    accountFacet(overrides?: CallOverrides): Promise<[string]>;
+  once<TCEvent extends TypedContractEvent>(
+    event: TCEvent,
+    listener: TypedListener<TCEvent>
+  ): Promise<this>;
+  once<TCEvent extends TypedContractEvent>(
+    filter: TypedDeferredTopicFilter<TCEvent>,
+    listener: TypedListener<TCEvent>
+  ): Promise<this>;
 
-    createAccount(
-      _verificationFacet: string,
-      _owner: BytesLike,
-      _salt: BigNumberish,
-      overrides?: Overrides & { from?: string }
-    ): Promise<ContractTransaction>;
+  listeners<TCEvent extends TypedContractEvent>(
+    event: TCEvent
+  ): Promise<Array<TypedListener<TCEvent>>>;
+  listeners(eventName?: string): Promise<Array<Listener>>;
+  removeAllListeners<TCEvent extends TypedContractEvent>(
+    event?: TCEvent
+  ): Promise<this>;
 
-    defaultFallback(overrides?: CallOverrides): Promise<[string]>;
+  accountFacet: TypedContractMethod<[], [string], "view">;
 
-    entryPoint(overrides?: CallOverrides): Promise<[string]>;
+  createAccount: TypedContractMethod<
+    [_verificationFacet: AddressLike, _owner: BytesLike, _salt: BigNumberish],
+    [string],
+    "nonpayable"
+  >;
 
-    facetRegistry(overrides?: CallOverrides): Promise<[string]>;
+  defaultFallback: TypedContractMethod<[], [string], "view">;
 
-    getAddress(
-      _verificationFacet: string,
-      _owner: BytesLike,
-      _salt: BigNumberish,
-      overrides?: CallOverrides
-    ): Promise<[string] & { barzAddress: string }>;
+  entryPoint: TypedContractMethod<[], [string], "view">;
 
-    getBytecode(
-      _accountFacet: string,
-      _verificationFacet: string,
-      _entryPoint: string,
-      _facetRegistry: string,
-      _defaultFallback: string,
-      _ownerPublicKey: BytesLike,
-      overrides?: CallOverrides
-    ): Promise<[string] & { barzBytecode: string }>;
+  facetRegistry: TypedContractMethod<[], [string], "view">;
 
-    getCreationCode(
-      overrides?: CallOverrides
-    ): Promise<[string] & { creationCode: string }>;
-  };
+  getAddress: TypedContractMethod<
+    [_verificationFacet: AddressLike, _owner: BytesLike, _salt: BigNumberish],
+    [string],
+    "view"
+  >;
 
-  accountFacet(overrides?: CallOverrides): Promise<string>;
+  getBytecode: TypedContractMethod<
+    [
+      _accountFacet: AddressLike,
+      _verificationFacet: AddressLike,
+      _entryPoint: AddressLike,
+      _facetRegistry: AddressLike,
+      _defaultFallback: AddressLike,
+      _ownerPublicKey: BytesLike
+    ],
+    [string],
+    "view"
+  >;
 
-  createAccount(
-    _verificationFacet: string,
-    _owner: BytesLike,
-    _salt: BigNumberish,
-    overrides?: Overrides & { from?: string }
-  ): Promise<ContractTransaction>;
+  getCreationCode: TypedContractMethod<[], [string], "view">;
 
-  defaultFallback(overrides?: CallOverrides): Promise<string>;
+  getFunction<T extends ContractMethod = ContractMethod>(
+    key: string | FunctionFragment
+  ): T;
 
-  entryPoint(overrides?: CallOverrides): Promise<string>;
+  getFunction(
+    nameOrSignature: "accountFacet"
+  ): TypedContractMethod<[], [string], "view">;
+  getFunction(
+    nameOrSignature: "createAccount"
+  ): TypedContractMethod<
+    [_verificationFacet: AddressLike, _owner: BytesLike, _salt: BigNumberish],
+    [string],
+    "nonpayable"
+  >;
+  getFunction(
+    nameOrSignature: "defaultFallback"
+  ): TypedContractMethod<[], [string], "view">;
+  getFunction(
+    nameOrSignature: "entryPoint"
+  ): TypedContractMethod<[], [string], "view">;
+  getFunction(
+    nameOrSignature: "facetRegistry"
+  ): TypedContractMethod<[], [string], "view">;
+  getFunction(
+    nameOrSignature: "getAddress"
+  ): TypedContractMethod<
+    [_verificationFacet: AddressLike, _owner: BytesLike, _salt: BigNumberish],
+    [string],
+    "view"
+  >;
+  getFunction(
+    nameOrSignature: "getBytecode"
+  ): TypedContractMethod<
+    [
+      _accountFacet: AddressLike,
+      _verificationFacet: AddressLike,
+      _entryPoint: AddressLike,
+      _facetRegistry: AddressLike,
+      _defaultFallback: AddressLike,
+      _ownerPublicKey: BytesLike
+    ],
+    [string],
+    "view"
+  >;
+  getFunction(
+    nameOrSignature: "getCreationCode"
+  ): TypedContractMethod<[], [string], "view">;
 
-  facetRegistry(overrides?: CallOverrides): Promise<string>;
-
-  getAddress(
-    _verificationFacet: string,
-    _owner: BytesLike,
-    _salt: BigNumberish,
-    overrides?: CallOverrides
-  ): Promise<string>;
-
-  getBytecode(
-    _accountFacet: string,
-    _verificationFacet: string,
-    _entryPoint: string,
-    _facetRegistry: string,
-    _defaultFallback: string,
-    _ownerPublicKey: BytesLike,
-    overrides?: CallOverrides
-  ): Promise<string>;
-
-  getCreationCode(overrides?: CallOverrides): Promise<string>;
-
-  callStatic: {
-    accountFacet(overrides?: CallOverrides): Promise<string>;
-
-    createAccount(
-      _verificationFacet: string,
-      _owner: BytesLike,
-      _salt: BigNumberish,
-      overrides?: CallOverrides
-    ): Promise<string>;
-
-    defaultFallback(overrides?: CallOverrides): Promise<string>;
-
-    entryPoint(overrides?: CallOverrides): Promise<string>;
-
-    facetRegistry(overrides?: CallOverrides): Promise<string>;
-
-    getAddress(
-      _verificationFacet: string,
-      _owner: BytesLike,
-      _salt: BigNumberish,
-      overrides?: CallOverrides
-    ): Promise<string>;
-
-    getBytecode(
-      _accountFacet: string,
-      _verificationFacet: string,
-      _entryPoint: string,
-      _facetRegistry: string,
-      _defaultFallback: string,
-      _ownerPublicKey: BytesLike,
-      overrides?: CallOverrides
-    ): Promise<string>;
-
-    getCreationCode(overrides?: CallOverrides): Promise<string>;
-  };
+  getEvent(
+    key: "BarzDeployed"
+  ): TypedContractEvent<
+    BarzDeployedEvent.InputTuple,
+    BarzDeployedEvent.OutputTuple,
+    BarzDeployedEvent.OutputObject
+  >;
 
   filters: {
-    "BarzDeployed(address)"(arg0?: null): BarzDeployedEventFilter;
-    BarzDeployed(arg0?: null): BarzDeployedEventFilter;
-  };
-
-  estimateGas: {
-    accountFacet(overrides?: CallOverrides): Promise<BigNumber>;
-
-    createAccount(
-      _verificationFacet: string,
-      _owner: BytesLike,
-      _salt: BigNumberish,
-      overrides?: Overrides & { from?: string }
-    ): Promise<BigNumber>;
-
-    defaultFallback(overrides?: CallOverrides): Promise<BigNumber>;
-
-    entryPoint(overrides?: CallOverrides): Promise<BigNumber>;
-
-    facetRegistry(overrides?: CallOverrides): Promise<BigNumber>;
-
-    getAddress(
-      _verificationFacet: string,
-      _owner: BytesLike,
-      _salt: BigNumberish,
-      overrides?: CallOverrides
-    ): Promise<BigNumber>;
-
-    getBytecode(
-      _accountFacet: string,
-      _verificationFacet: string,
-      _entryPoint: string,
-      _facetRegistry: string,
-      _defaultFallback: string,
-      _ownerPublicKey: BytesLike,
-      overrides?: CallOverrides
-    ): Promise<BigNumber>;
-
-    getCreationCode(overrides?: CallOverrides): Promise<BigNumber>;
-  };
-
-  populateTransaction: {
-    accountFacet(overrides?: CallOverrides): Promise<PopulatedTransaction>;
-
-    createAccount(
-      _verificationFacet: string,
-      _owner: BytesLike,
-      _salt: BigNumberish,
-      overrides?: Overrides & { from?: string }
-    ): Promise<PopulatedTransaction>;
-
-    defaultFallback(overrides?: CallOverrides): Promise<PopulatedTransaction>;
-
-    entryPoint(overrides?: CallOverrides): Promise<PopulatedTransaction>;
-
-    facetRegistry(overrides?: CallOverrides): Promise<PopulatedTransaction>;
-
-    getAddress(
-      _verificationFacet: string,
-      _owner: BytesLike,
-      _salt: BigNumberish,
-      overrides?: CallOverrides
-    ): Promise<PopulatedTransaction>;
-
-    getBytecode(
-      _accountFacet: string,
-      _verificationFacet: string,
-      _entryPoint: string,
-      _facetRegistry: string,
-      _defaultFallback: string,
-      _ownerPublicKey: BytesLike,
-      overrides?: CallOverrides
-    ): Promise<PopulatedTransaction>;
-
-    getCreationCode(overrides?: CallOverrides): Promise<PopulatedTransaction>;
+    "BarzDeployed(address)": TypedContractEvent<
+      BarzDeployedEvent.InputTuple,
+      BarzDeployedEvent.OutputTuple,
+      BarzDeployedEvent.OutputObject
+    >;
+    BarzDeployed: TypedContractEvent<
+      BarzDeployedEvent.InputTuple,
+      BarzDeployedEvent.OutputTuple,
+      BarzDeployedEvent.OutputObject
+    >;
   };
 }

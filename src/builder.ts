@@ -1,4 +1,4 @@
-import { BigNumberish, BytesLike, ethers } from "ethers";
+import { BytesLike, ethers } from "ethers";
 import { OpToJSON } from "./utils";
 import { UserOperationMiddlewareCtx } from "./context";
 import {
@@ -7,22 +7,22 @@ import {
   UserOperationMiddlewareFn,
 } from "./types";
 
-export const DEFAULT_VERIFICATION_GAS_LIMIT = ethers.BigNumber.from(70000);
-export const DEFAULT_CALL_GAS_LIMIT = ethers.BigNumber.from(35000);
-export const DEFAULT_PRE_VERIFICATION_GAS = ethers.BigNumber.from(21000);
+export const DEFAULT_VERIFICATION_GAS_LIMIT = BigInt(70000);
+export const DEFAULT_CALL_GAS_LIMIT = BigInt(35000);
+export const DEFAULT_PRE_VERIFICATION_GAS = BigInt(21000);
 
 export const DEFAULT_USER_OP: IUserOperation = {
-  sender: ethers.constants.AddressZero,
-  nonce: ethers.constants.Zero,
-  initCode: ethers.utils.hexlify("0x"),
-  callData: ethers.utils.hexlify("0x"),
+  sender: ethers.ZeroAddress,
+  nonce: BigInt(0),
+  initCode: ethers.hexlify("0x"),
+  callData: ethers.hexlify("0x"),
   callGasLimit: DEFAULT_CALL_GAS_LIMIT,
   verificationGasLimit: DEFAULT_VERIFICATION_GAS_LIMIT,
   preVerificationGas: DEFAULT_PRE_VERIFICATION_GAS,
-  maxFeePerGas: ethers.constants.Zero,
-  maxPriorityFeePerGas: ethers.constants.Zero,
-  paymasterAndData: ethers.utils.hexlify("0x"),
-  signature: ethers.utils.hexlify("0x"),
+  maxFeePerGas: BigInt(0),
+  maxPriorityFeePerGas: BigInt(0),
+  paymasterAndData: ethers.hexlify("0x"),
+  signature: ethers.hexlify("0x"),
 };
 
 export class UserOperationBuilder {
@@ -39,47 +39,34 @@ export class UserOperationBuilder {
   private resolveFields(op: Partial<IUserOperation>): Partial<IUserOperation> {
     const obj = {
       sender:
-        op.sender !== undefined
-          ? ethers.utils.getAddress(op.sender)
-          : undefined,
-      nonce:
-        op.nonce !== undefined ? ethers.BigNumber.from(op.nonce) : undefined,
+        op.sender !== undefined ? ethers.getAddress(op.sender) : undefined,
+      nonce: op.nonce !== undefined ? BigInt(op.nonce) : undefined,
       initCode:
-        op.initCode !== undefined
-          ? ethers.utils.hexlify(op.initCode)
-          : undefined,
+        op.initCode !== undefined ? ethers.hexlify(op.initCode) : undefined,
       callData:
-        op.callData !== undefined
-          ? ethers.utils.hexlify(op.callData)
-          : undefined,
+        op.callData !== undefined ? ethers.hexlify(op.callData) : undefined,
       callGasLimit:
-        op.callGasLimit !== undefined
-          ? ethers.BigNumber.from(op.callGasLimit)
-          : undefined,
+        op.callGasLimit !== undefined ? BigInt(op.callGasLimit) : undefined,
       verificationGasLimit:
         op.verificationGasLimit !== undefined
-          ? ethers.BigNumber.from(op.verificationGasLimit)
+          ? BigInt(op.verificationGasLimit)
           : undefined,
       preVerificationGas:
         op.preVerificationGas !== undefined
-          ? ethers.BigNumber.from(op.preVerificationGas)
+          ? BigInt(op.preVerificationGas)
           : undefined,
       maxFeePerGas:
-        op.maxFeePerGas !== undefined
-          ? ethers.BigNumber.from(op.maxFeePerGas)
-          : undefined,
+        op.maxFeePerGas !== undefined ? BigInt(op.maxFeePerGas) : undefined,
       maxPriorityFeePerGas:
         op.maxPriorityFeePerGas !== undefined
-          ? ethers.BigNumber.from(op.maxPriorityFeePerGas)
+          ? BigInt(op.maxPriorityFeePerGas)
           : undefined,
       paymasterAndData:
         op.paymasterAndData !== undefined
-          ? ethers.utils.hexlify(op.paymasterAndData)
+          ? ethers.hexlify(op.paymasterAndData)
           : undefined,
       signature:
-        op.signature !== undefined
-          ? ethers.utils.hexlify(op.signature)
-          : undefined,
+        op.signature !== undefined ? ethers.hexlify(op.signature) : undefined,
     };
     return Object.keys(obj).reduce(
       (prev, curr) =>
@@ -128,47 +115,47 @@ export class UserOperationBuilder {
   }
 
   setSender(val: string) {
-    this.currOp.sender = ethers.utils.getAddress(val);
+    this.currOp.sender = ethers.getAddress(val);
     return this;
   }
-  setNonce(val: BigNumberish) {
-    this.currOp.nonce = ethers.BigNumber.from(val);
+  setNonce(val: bigint) {
+    this.currOp.nonce = BigInt(val);
     return this;
   }
   setInitCode(val: BytesLike) {
-    this.currOp.initCode = ethers.utils.hexlify(val);
+    this.currOp.initCode = ethers.hexlify(val);
     return this;
   }
   setCallData(val: BytesLike) {
-    this.currOp.callData = ethers.utils.hexlify(val);
+    this.currOp.callData = ethers.hexlify(val);
     return this;
   }
-  setCallGasLimit(val: BigNumberish) {
-    this.currOp.callGasLimit = ethers.BigNumber.from(val);
+  setCallGasLimit(val: bigint) {
+    this.currOp.callGasLimit = BigInt(val);
     return this;
   }
-  setVerificationGasLimit(val: BigNumberish) {
-    this.currOp.verificationGasLimit = ethers.BigNumber.from(val);
+  setVerificationGasLimit(val: bigint) {
+    this.currOp.verificationGasLimit = BigInt(val);
     return this;
   }
-  setPreVerificationGas(val: BigNumberish) {
-    this.currOp.preVerificationGas = ethers.BigNumber.from(val);
+  setPreVerificationGas(val: bigint) {
+    this.currOp.preVerificationGas = BigInt(val);
     return this;
   }
-  setMaxFeePerGas(val: BigNumberish) {
-    this.currOp.maxFeePerGas = ethers.BigNumber.from(val);
+  setMaxFeePerGas(val: bigint) {
+    this.currOp.maxFeePerGas = BigInt(val);
     return this;
   }
-  setMaxPriorityFeePerGas(val: BigNumberish) {
-    this.currOp.maxPriorityFeePerGas = ethers.BigNumber.from(val);
+  setMaxPriorityFeePerGas(val: bigint) {
+    this.currOp.maxPriorityFeePerGas = BigInt(val);
     return this;
   }
   setPaymasterAndData(val: BytesLike) {
-    this.currOp.paymasterAndData = ethers.utils.hexlify(val);
+    this.currOp.paymasterAndData = ethers.hexlify(val);
     return this;
   }
   setSignature(val: BytesLike) {
-    this.currOp.signature = ethers.utils.hexlify(val);
+    this.currOp.signature = ethers.hexlify(val);
     return this;
   }
   setPartial(partialOp: Partial<IUserOperation>) {
@@ -199,7 +186,7 @@ export class UserOperationBuilder {
 
   async buildOp(
     entryPoint: string,
-    chainId: BigNumberish,
+    chainId: bigint,
     stateOverrides?: StateOverrideSet
   ) {
     const ctx = new UserOperationMiddlewareCtx(

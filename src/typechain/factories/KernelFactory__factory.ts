@@ -2,8 +2,7 @@
 /* tslint:disable */
 /* eslint-disable */
 
-import { Contract, Signer, utils } from "ethers";
-import type { Provider } from "@ethersproject/providers";
+import { Contract, Interface, type ContractRunner } from "ethers";
 import type { KernelFactory, KernelFactoryInterface } from "../KernelFactory";
 
 const _abi = [
@@ -151,12 +150,12 @@ const _abi = [
 export class KernelFactory__factory {
   static readonly abi = _abi;
   static createInterface(): KernelFactoryInterface {
-    return new utils.Interface(_abi) as KernelFactoryInterface;
+    return new Interface(_abi) as KernelFactoryInterface;
   }
   static connect(
     address: string,
-    signerOrProvider: Signer | Provider
+    runner?: ContractRunner | null
   ): KernelFactory {
-    return new Contract(address, _abi, signerOrProvider) as KernelFactory;
+    return new Contract(address, _abi, runner) as unknown as KernelFactory;
   }
 }
